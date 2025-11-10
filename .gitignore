@@ -1,0 +1,61 @@
+# Environment variables
+.env
+
+# Downloaded media
+Media/
+Downloads/
+
+# Configuration backups
+backups/
+*.backup
+
+# Docker volumes
+docker-volumes/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Certificates
+*.pem
+*.key
+*.crt
+*.p12
+
+# VPN data
+*.conf
+wg-quick/

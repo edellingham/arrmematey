@@ -1,0 +1,241 @@
+version: '3.8'
+
+services:
+  # Gluetun VPN with Mullvad
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${MULLVAD_ACCOUNT_ID}
+      - SERVER_Countries=${MULLVAD_COUNTRY}
+      - SERVER_Cities=${MULLVAD_CITY}
+      - TZ=${TZ}
+      - FIREWALL=on
+      - FIREWALL_VPN_INPUT_PORTS=${SONARR_PORT:-8989},${RADARR_PORT:-7878},${LIDARR_PORT:-8686},${SABNZBD_PORT:-8080},${QBITTORRENT_PORT:-8081}
+      - DOT=off
+      - DNS_PLAINTEXT_ADDRESS=1.1.1.1,1.0.0.1
+      - AUTOCONNECT=true
+      - KILLSWITCH=true
+      - SHADOWSOCKS=off
+    volumes:
+      - ${CONFIG_PATH}/gluetun:/config
+    ports:
+      - ${SONARR_PORT:-8989}:8989
+      - ${RADARR_PORT:-7878}:7878
+      - ${LIDARR_PORT:-8686}:8686
+      - ${SABNZBD_PORT:-8080}:8080
+      - ${QBITTORRENT_PORT:-8081}:8081
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://ifconfig.me"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - full
+      - vpn
+
+  # Prowlarr - Indexer Manager
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_PATH}/prowlarr:/config
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - prowlarr
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9696"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - full
+      - indexers
+
+  # Sonarr
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_PATH}/sonarr:/config
+      - ${MEDIA_PATH}/tv:/tv
+      - ${DOWNLOADS_PATH}/complete:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - prowlarr
+    restart: unless-stopped
+    profiles:
+      - full
+      - media
+
+  # Radarr
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_PATH}/radarr:/config
+      - ${MEDIA_PATH}/movies:/movies
+      - ${DOWNLOADS_PATH}/complete:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - prowlarr
+    restart: unless-stopped
+    profiles:
+      - full
+      - media
+
+  # Lidarr
+  lidarr:
+    image: linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_PATH}/lidarr:/config
+      - ${MEDIA_PATH}/music:/music
+      - ${DOWNLOADS_PATH}/complete:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - prowlarr
+    restart: unless-stopped
+    profiles:
+      - full
+      - media
+
+  # SABnzbd
+  sabnzbd:
+    image: linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_PATH}/sabnzbd:/config
+      - ${DOWNLOADS_PATH}/incomplete:/incomplete-downloads
+      - ${DOWNLOADS_PATH}/complete:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - prowlarr
+    restart: unless-stopped
+    profiles:
+      - full
+      - downloaders
+
+  # qBittorrent
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ}
+      - WEBUI_PORT=8081
+    volumes:
+      - ${CONFIG_PATH}/qbittorrent:/config
+      - ${DOWNLOADS_PATH}/complete:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - prowlarr
+    restart: unless-stopped
+    profiles:
+      - full
+      - downloaders
+
+  # Jellyseerr
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ}
+      - PORT=5055
+    volumes:
+      - ${CONFIG_PATH}/jellyseerr:/config
+    ports:
+      - ${JELLYSEERR_PORT:-5055}:5055
+    restart: unless-stopped
+    profiles:
+      - full
+      - media
+
+  # Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
+    restart: unless-stopped
+    profiles:
+      - full
+      - tunnel
+
+  # Management UI
+  arrstack-ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: arrstack-ui
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./.env:/app/.env:ro
+    ports:
+      - ${MANAGEMENT_UI_PORT:-8080}:3000
+    restart: unless-stopped
+    profiles:
+      - full
+      - ui
+
+  # Recyclarr for quality profiles
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:latest
+    container_name: recyclarr
+    volumes:
+      - ${CONFIG_PATH}/recyclarr:/config
+      - ./.env:/config/.env:ro
+    environment:
+      - RECYCLARR_BASE_URL_SONARR=http://sonarr:8989
+      - RECYCLARR_BASE_URL_RADARR=http://radarr:7878
+      - RECYCLARR_BASE_URL_LIDARR=http://lidarr:8686
+      - RECYCLARR_BASE_URL_PROWLARR=http://prowlarr:9696
+    network_mode: "service:gluetun"
+    depends_on:
+      - sonarr
+      - radarr
+      - lidarr
+      - prowlarr
+    restart: "no"
+    command: sync
+    profiles:
+      - full
+      - automation
