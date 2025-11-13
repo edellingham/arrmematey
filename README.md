@@ -20,6 +20,23 @@ At your service! Arrmematey is your trusty pirate crew for all your media treasu
 
 Your pirate captain will create a private GitHub repository and push all the treasure maps safely!
 
+## 🚀 Quick Proxmox LXC Deployment
+
+**Deploy Arrmematey to Proxmox with one command:**
+
+```bash
+# Run on Proxmox host - creates LXC container with Docker and Arrmematey
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/deploy.sh)"
+```
+
+This single command will:
+- ✅ Download deployment script from GitHub
+- ✅ Interactive storage passthrough selection
+- ✅ Create LXC container with optimal settings
+- ✅ Install Docker inside container
+- ✅ Deploy complete Arrmematey stack
+- ✅ Configure storage mounts for media/files
+
 Your butler will handle everything - Docker installation, VPN protection, service configuration, and setup!
 
 ## 🎭 What Your Butler Does
