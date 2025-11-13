@@ -7,6 +7,10 @@ const path = require('path');
 
 dotenv.config();
 
+// Fanart.tv API configuration
+const FANART_API_KEY = process.env.FANART_API_KEY || '809f4d10e36810f6f0a15445d11ec78d';
+const FANART_BASE_URL = 'https://webservice.fanart.tv/v3';
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
@@ -17,6 +21,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
+app.use('/images', express.static('../images'));
 
 // Arrmematey service configuration
 const getServiceConfig = () => {
@@ -117,6 +122,107 @@ app.get('/api/system/info', async (req, res) => {
   }
 });
 
+// Fanart.tv API routes for movie backdrops
+app.get('/api/fanart/backdrop', async (req, res) => {
+  try {
+    if (!FANART_API_KEY) {
+      return res.status(500).json({ error: 'Fanart.tv API key not configured' });
+    }
+
+    // User's complete movie list with correct TMDB IDs
+    const movieIds = [
+      { id: 620, title: 'Ghostbusters' },
+      { id: 10428, title: 'Hackers' },
+      { id: 105, title: 'Back to the Future' },
+      { id: 1648, title: 'Bill & Ted\'s Excellent Adventure' },
+      { id: 85, title: 'Raiders of the Lost Ark' },
+      { id: 8872, title: 'Wayne\'s World' },
+      { id: 11381, title: 'Tommy Boy' },
+      { id: 11827, title: 'Heavy Metal' },
+      { id: 6978, title: 'Big Trouble in Little China' },
+      { id: 377, title: 'A Nightmare on Elm Street' },
+      { id: 1642, title: 'The Net' },
+      { id: 15239, title: 'The Toxic Avenger' },
+      { id: 1498, title: 'Teenage Mutant Ninja Turtles' },
+      { id: 9015, title: 'Beverly Hills Cop' },
+      { id: 11649, title: 'Masters of the Universe' },
+      { id: 15301, title: 'Twilight Zone: The Movie' },
+      { id: 9872, title: 'Explorers' },
+      { id: 13841, title: 'Rad' },
+      { id: 2617, title: 'The Great Outdoors' },
+      { id: 10136, title: 'The Golden Child' },
+      { id: 957, title: 'Spaceballs' },
+      { id: 2616, title: 'Uncle Buck' },
+      { id: 13997, title: 'Black Sheep' },
+      { id: 9749, title: 'Fletch' },
+      { id: 11153, title: 'National Lampoon\'s Vacation' },
+      { id: 562, title: 'Die Hard' },
+      { id: 10999, title: 'Commando' },
+      { id: 927, title: 'Gremlins' },
+      { id: 11977, title: 'Caddyshack' },
+      { id: 525, title: 'The Blues Brothers' },
+      { id: 1621, title: 'Trading Places' },
+      { id: 150, title: '48 Hrs' },
+      { id: 9397, title: 'Evolution' },
+      { id: 11974, title: 'The Burbs' },
+      { id: 13, title: 'Forrest Gump' },
+      { id: 20678, title: 'Blankman' },
+      { id: 29444, title: 'SFW' },
+      { id: 137, title: 'Groundhog Day' },
+      { id: 19908, title: 'Zombieland' },
+      { id: 764, title: 'The Evil Dead' },
+      { id: 25969, title: 'Angus' }
+    ];
+
+    // Pick a random movie
+    const randomMovie = movieIds[Math.floor(Math.random() * movieIds.length)];
+    console.log(`Fetching Fanart.tv for movie: ${randomMovie.title} (ID: ${randomMovie.id})`);
+
+    // Fetch fanart for this movie
+    const response = await fetch(`${FANART_BASE_URL}/movies/${randomMovie.id}?api_key=${FANART_API_KEY}`);
+    
+    if (!response.ok) {
+      console.log(`Fanart.tv API error: ${response.status} for movie ${randomMovie.id}`);
+      throw new Error(`Fanart.tv API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`Fanart.tv response for ${randomMovie.title}:`, JSON.stringify(data, null, 2));
+    
+    // Check if we got valid data
+    if (!data || Object.keys(data).length === 0) {
+      console.log(`No fanart data for movie ${randomMovie.title}`);
+      return res.json({ backdropUrl: null, title: null, overview: null });
+    }
+
+    // Check for movie backgrounds/backdrops (try different types)
+    let backdropUrl = null;
+    
+    if (data.moviethumb && data.moviethumb.length > 0) {
+      backdropUrl = data.moviethumb[Math.floor(Math.random() * data.moviethumb.length)].url;
+    } else if (data.moviebackground && data.moviebackground.length > 0) {
+      backdropUrl = data.moviebackground[Math.floor(Math.random() * data.moviebackground.length)].url;
+    } else if (data.movieposter && data.movieposter.length > 0) {
+      backdropUrl = data.movieposter[Math.floor(Math.random() * data.movieposter.length)].url;
+    }
+    
+    if (backdropUrl) {
+      console.log(`Found backdrop for ${randomMovie.title}`);
+      return res.json({
+        backdropUrl: backdropUrl,
+        title: randomMovie.title,
+        overview: 'Movie backdrop from Fanart.tv'
+      });
+    } else {
+      console.log(`No usable backdrops for ${randomMovie.title}`);
+      return res.json({ backdropUrl: null, title: null, overview: null });
+    }
+  } catch (error) {
+    console.error('Error fetching Fanart.tv backdrop:', error);
+    res.json({ backdropUrl: null, title: null, overview: null });
+  }
+});
+
 // Socket.io for real-time updates
 setInterval(async () => {
   try {
@@ -134,5 +240,5 @@ app.get('/', (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`🏴‍☠️ Arrmematey Management UI running on port ${PORT}`);
-  console.log(`Your pirate crew is ready to set sail!`);
+  console.log(`Captain's crew be ready to set sail!`);
 });
