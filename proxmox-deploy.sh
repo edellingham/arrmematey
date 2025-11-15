@@ -33,6 +33,36 @@ print_pirate() {
     echo -e "${PURPLE}🏴‍☠️ Captain:${NC} $1"
 }
 
+normalize_storage_path() {
+    local path="${1:-}"
+    path="${path#/}"
+    path="${path%/}"
+    printf '%s' "$path"
+}
+
+add_unique_path() {
+    local -n target_array=$1
+    local raw_path=$2
+    local normalized
+    normalized="$(normalize_storage_path "$raw_path")"
+    [[ -z "$normalized" ]] && return
+
+    for existing in "${target_array[@]:-}"; do
+        [[ "$existing" == "$normalized" ]] && return
+    done
+
+    target_array+=("$normalized")
+}
+
+ensure_host_directory() {
+    local host_path="$1"
+    [[ -z "$host_path" ]] && return
+    if [[ ! -d "$host_path" ]]; then
+        mkdir -p "$host_path"
+        print_status "Created host storage path: $host_path"
+    fi
+}
+
 # Check if running on Proxmox
 check_proxmox() {
     if ! command -v pct &> /dev/null; then
@@ -70,50 +100,47 @@ get_ct_templates() {
 # Get host storage locations
 get_host_storage() {
     print_pirate "Scanning host storage locations..."
-    
+
     # Create arrays for storage options
     local media_paths=()
     local download_paths=()
     local config_paths=()
-    
-    # Check common media locations
-    if [[ -d "/mnt/media" ]]; then
-        media_paths+=("mnt/media")
+
+    local home_dir
+    home_dir=$(getent passwd "$(logname)" | cut -d: -f6)
+
+    local default_media_dirs=("/mnt/media" "/mnt/tv" "/mnt/movies" "/mnt/music")
+    for path in "${default_media_dirs[@]}"; do
+        [[ -d "$path" ]] && add_unique_path media_paths "$path"
+    done
+
+    if [[ -n "$home_dir" ]]; then
+        [[ -d "$home_dir/Media" ]] && add_unique_path media_paths "$home_dir/Media"
+        [[ -d "$home_dir/Downloads" ]] && add_unique_path download_paths "$home_dir/Downloads"
     fi
-    if [[ -d "/mnt/tv" ]]; then
-        media_paths+=("mnt/tv")
+
+    [[ -d "/data" ]] && add_unique_path media_paths "/data"
+    [[ -d "/data/downloads" ]] && add_unique_path download_paths "/data/downloads"
+    [[ -d "/mnt/downloads" ]] && add_unique_path download_paths "/mnt/downloads"
+
+    # Detect ZFS mountpoints as additional storage options
+    if command -v zfs &> /dev/null; then
+        while read -r mountpoint; do
+            [[ -z "$mountpoint" ]] && continue
+            [[ "$mountpoint" == "none" || "$mountpoint" == "legacy" || "$mountpoint" == "/" ]] && continue
+            add_unique_path media_paths "$mountpoint"
+            add_unique_path download_paths "$mountpoint"
+        done < <(zfs list -H -o mountpoint | sort -u)
     fi
-    if [[ -d "/mnt/movies" ]]; then
-        media_paths+=("mnt/movies")
-    fi
-    if [[ -d "/mnt/music" ]]; then
-        media_paths+=("mnt/music")
-    fi
-    
-    # Check user directories
-    local user_home=$(getent passwd $(logname) | cut -d: -f6)
-    if [[ -d "$user_home/Media" ]]; then
-        media_paths+=("$(logname)/Media")
-    fi
-    if [[ -d "$user_home/Downloads" ]]; then
-        download_paths+=("$(logname)/Downloads")
-    fi
-    
-    # Check other common locations
-    if [[ -d "/data" ]]; then
-        media_paths+=("data")
-        download_paths+=("data/downloads")
-    fi
-    if [[ -d "/mnt/downloads" ]]; then
-        download_paths+=("mnt/downloads")
-    fi
-    
+
+    # Fallback defaults if nothing detected
+    [[ ${#media_paths[@]} -eq 0 ]] && add_unique_path media_paths "/mnt/media"
+    [[ ${#download_paths[@]} -eq 0 ]] && add_unique_path download_paths "/mnt/downloads"
+
     # Default config backup location
-    config_paths+=("$(logname)/arrmematey-config")
-    if [[ -d "/mnt/config" ]]; then
-        config_paths+=("mnt/config/arrmematey")
-    fi
-    
+    add_unique_path config_paths "$home_dir/arrmematey-config"
+    [[ -d "/mnt/config" ]] && add_unique_path config_paths "/mnt/config/arrmematey"
+
     # Store in global variables
     AVAILABLE_MEDIA_PATHS=("${media_paths[@]}")
     AVAILABLE_DOWNLOAD_PATHS=("${download_paths[@]}")
@@ -216,6 +243,7 @@ generate_storage_mounts() {
     fi
     
     if [[ -n "$media_path" ]]; then
+        ensure_host_directory "$media_path"
         STORAGE_MOUNTS+="--mp$MOUNT_COUNTER $media_path:/home/ed/Media,shared=1 "
         ((MOUNT_COUNTER++))
         print_status "Media storage: $media_path → /home/ed/Media"
@@ -230,6 +258,7 @@ generate_storage_mounts() {
     fi
     
     if [[ -n "$download_path" ]]; then
+        ensure_host_directory "$download_path"
         STORAGE_MOUNTS+="--mp$MOUNT_COUNTER $download_path:/home/ed/Downloads,shared=1 "
         ((MOUNT_COUNTER++))
         print_status "Download storage: $download_path → /home/ed/Downloads"
@@ -244,6 +273,7 @@ generate_storage_mounts() {
     esac
     
     if [[ -n "$config_path" ]]; then
+        ensure_host_directory "$config_path"
         STORAGE_MOUNTS+="--mp$MOUNT_COUNTER $config_path:/home/ed/Config,shared=1 "
         ((MOUNT_COUNTER++))
         print_status "Config storage: $config_path → /home/ed/Config"

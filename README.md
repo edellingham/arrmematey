@@ -21,6 +21,8 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/m
 
 Follow the prompts for storage, Mullvad VPN ID, and media server choices—everything else is automated.
 
+The storage prompt now lists every detected media/download path (including ZFS mountpoints) and automatically creates the folder you select before the container starts, so you do not need to prepare directories manually.
+
 ## ⚔️ Core Services on Deck
 - 🔍 **Prowlarr** – Indexer commander (https://localhost:9696)
 - 🎬 **Sonarr** – TV series scout (https://localhost:8989)
