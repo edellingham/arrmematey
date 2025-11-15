@@ -61,12 +61,18 @@ echo "5. Testing ACTUAL template detection (this is important!)..."
 echo "   5a. Testing pvesm list with JSON parsing:"
 if command -v jq &> /dev/null; then
     echo "      ✅ jq is available"
+    echo "      Testing: pvesm list -content vztmpl -json"
     raw_templates=$(pvesm list -content vztmpl -json 2>/dev/null)
     if [[ $? -eq 0 && -n "$raw_templates" ]]; then
         echo "      ✅ JSON command successful"
+        echo "      Raw output length: ${#raw_templates} characters"
         filtered_templates=$(echo "$raw_templates" | jq -r '.[] | select(.volid | contains("ubuntu") or contains("debian")) | .volid' 2>/dev/null)
         echo "      Filtered templates:"
-        echo "$filtered_templates" | nl -nln 2>/dev/null || echo "      ❌ Filtering failed"
+        if [[ -n "$filtered_templates" ]]; then
+            echo "$filtered_templates" | nl -nln 2>/dev/null || echo "      Template filtering returned: $filtered_templates"
+        else
+            echo "      ❌ No templates found with JSON filtering"
+        fi
     else
         echo "      ❌ JSON command failed or returned empty"
     fi
@@ -76,9 +82,21 @@ fi
 
 echo ""
 echo "   5b. Testing direct template listing:"
-direct_templates=$(pvesm list -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" || echo "No templates found")
-echo "      Direct listing result:"
-echo "$direct_templates" | nl -nln
+echo "      Testing: pvesm list -content vztmpl"
+direct_templates=$(pvesm list -content vztmpl 2>/dev/null || echo "Command failed")
+if [[ "$direct_templates" == "Command failed" ]]; then
+    echo "      ❌ pvesm list command failed"
+else
+    echo "      Direct listing result (first 5 lines):"
+    echo "$direct_templates" | head -5 | nl -nln 2>/dev/null
+    echo "      Searching for Ubuntu/Debian templates:"
+    ubuntu_templates=$(echo "$direct_templates" | grep -E "(ubuntu|debian)" || echo "")
+    if [[ -n "$ubuntu_templates" ]]; then
+        echo "$ubuntu_templates" | nl -nln
+    else
+        echo "      ❌ No Ubuntu/Debian templates found in direct listing"
+    fi
+fi
 
 echo ""
 echo "   5c. Testing all storage pools:"
@@ -86,9 +104,15 @@ echo "      Available storages:"
 pvesm status 2>/dev/null | head -5 || echo "      Could not list storages"
 
 echo ""
-for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' | head -3 2>/dev/null || echo "local"); do
+echo "      Testing individual storage pools:"
+for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' | head -5 2>/dev/null || echo "local"); do
     echo "      Templates in $storage:"
-    pvesm list "$storage" -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | head -3 || echo "      No templates found"
+    storage_templates=$(pvesm list "$storage" -content vztmpl 2>/dev/null || echo "")
+    if [[ -n "$storage_templates" ]]; then
+        echo "$storage_templates" | grep -E "(ubuntu|debian)" | head -3 || echo "      No Ubuntu/Debian templates found"
+    else
+        echo "      No templates in $storage"
+    fi
 done
 
 echo ""
