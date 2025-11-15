@@ -108,12 +108,29 @@ get_storage_pools() {
 # Get available CT templates
 get_ct_templates() {
     print_pirate "Checking available CT templates..."
-    
+
+    # Method 1: Try JSON parsing with jq
     local templates=$(pvesm list -content vztmpl -json 2>/dev/null | jq -r '.[] | select(.volid | contains("ubuntu") or contains("debian")) | .volid' 2>/dev/null || echo "")
+
+    # If JSON method fails or returns empty, try direct listing
+    if [[ -z "$templates" ]]; then
+        print_status "JSON parsing failed or no results, trying direct listing..."
+        # Get all template volumes and filter for Ubuntu/Debian
+        templates=$(pvesm list -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | awk '{print $1}' || echo "")
+    fi
+
     if [[ -z "$templates" ]]; then
         print_warning "No Ubuntu/Debian templates found. You may need to download one first."
         print_info "Download templates from: https://pve.proxmox.com/pve-docs/pve-admin-guide.html#pve_2_ct_templates"
+
+        # Show what's actually available
+        print_info "Available templates on this system:"
+        pvesm list -content vztmpl 2>/dev/null | head -10 || echo "Could not list templates"
+    else
+        print_status "Found templates:"
+        echo "$templates" | nl -nln
     fi
+
     echo "$templates"
 }
 
@@ -446,32 +463,81 @@ select_template() {
     echo ""
     print_pirate "Select CT template:"
     echo "====================="
-    
+
     local templates=$(get_ct_templates)
-    
+
     if [[ -z "$templates" ]]; then
-        print_error "No Ubuntu/Debian templates found!"
-        print_info "Please download a template first:"
-        print_info "1. Go to Proxmox web UI > Storage > Content"
-        print_info "2. Click 'Templates' and download Ubuntu/Debian template"
-        print_info "3. Re-run this script"
+        print_error "No Ubuntu/Debian templates found automatically!"
+        echo ""
+        print_info "Manual template selection required."
+        print_info "Available storage pools:"
+        pvesm status 2>/dev/null | grep -v "Content" | head -5 || echo "Could not list storage"
+        echo ""
+
+        # Try to get templates from all storages
+        print_info "Searching all storages for Ubuntu/Debian templates..."
+        local found_any=false
+        for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' | head -5); do
+            local storage_templates=$(pvesm list "$storage" -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | awk '{print "'$storage'":vztmpl/"$1"}' || echo "")
+            if [[ -n "$storage_templates" ]]; then
+                print_status "Found templates in $storage:"
+                echo "$storage_templates" | nl -nln
+                templates="$templates"$'\n'"$storage_templates"
+                found_any=true
+            fi
+        done
+
+        if [[ "$found_any" != "true" ]]; then
+            print_error "Still no templates found. Please download one manually:"
+            print_info "1. Go to Proxmox web UI"
+            print_info "2. Datacenter > Storage > Content"
+            print_info "3. Click 'Templates'"
+            print_info "4. Download 'ubuntu-22.04-standard' or similar"
+            print_info "5. Re-run this script"
+            exit 1
+        fi
+    fi
+
+    # Clean up templates and count them
+    templates=$(echo "$templates" | grep -v '^[[:space:]]*$' | sort | uniq)
+    local template_count=$(echo "$templates" | grep -c . || echo "0")
+
+    if [[ "$template_count" -eq "0" ]]; then
+        print_error "No valid templates found!"
         exit 1
     fi
-    
-    echo "$templates" | tr ' ' '\n' | nl -nln
+
+    echo ""
+    echo "Selectable templates:"
+    echo "$templates" | nl -nln
     echo ""
     read -p "Select template (number): " template_selection
-    
-    # Get selected template
-    local selected_template=$(echo "$templates" | tr ' ' '\n' | sed -n "${template_selection}p")
-    
-    if [[ -z "$selected_template" ]]; then
-        print_error "Invalid template selection"
-        exit 1
+
+    # Validate selection
+    if ! [[ "$template_selection" =~ ^[0-9]+$ ]] || [[ "$template_selection" -lt 1 ]] || [[ "$template_selection" -gt "$template_count" ]]; then
+        print_error "Invalid selection. Please enter a number between 1 and $template_count"
+        echo ""
+        print_info "Manual template entry available. Enter template in format:"
+        print_info "storage:vztmpl/filename.tar.gz (e.g., local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.gz)"
+        read -p "Or press Enter to exit: " manual_template
+
+        if [[ -z "$manual_template" ]]; then
+            exit 1
+        fi
+
+        TEMPLATE="$manual_template"
+        print_status "Using manual template: $TEMPLATE"
+    else
+        # Get selected template
+        local selected_template=$(echo "$templates" | sed -n "${template_selection}p")
+        if [[ -z "$selected_template" ]]; then
+            print_error "Failed to get template for selection $template_selection"
+            exit 1
+        fi
+
+        TEMPLATE="$selected_template"
+        print_status "Selected template: $TEMPLATE"
     fi
-    
-    print_status "Selected template: $selected_template"
-    TEMPLATE=$selected_template
 }
 
 # Create container
