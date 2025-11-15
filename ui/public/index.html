@@ -2,725 +2,697 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arrmematey - Your Pirate Crew</title>
-    <link rel="icon" type="image/svg+xml" href="/images/arrmematey-icon.svg">
+    <title>Arrmematey — Pirate Command Console</title>
+    <link rel="icon" type="image/png" href="/images/arrmematey-icon.png">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
+        :root {
+            --deep: #030610;
+            --surface: rgba(10, 16, 24, 0.8);
+            --panel: rgba(7, 12, 20, 0.85);
+            --border: rgba(255, 255, 255, 0.08);
+            --accent: #f9c04d;
+            --muted: rgba(255, 255, 255, 0.68);
+            --text: #f5f7ff;
+            font-family: 'Space Grotesk', 'Inter', 'Segoe UI', sans-serif;
+        }
+
+        *, *::before, *::after {
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f8fafc;
+            margin: 0;
             min-height: 100vh;
-            color: #333;
-            position: relative;
+            background: var(--deep);
+            color: var(--text);
             overflow-x: hidden;
         }
 
-        .backdrop-container {
+        .background-layer {
             position: fixed;
-            top: 0;
-            left: 0;
+            inset: 0;
             width: 100%;
             height: 100%;
-            z-index: -1;
-            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: saturate(1.2);
+            opacity: 0;
+            transition: opacity 1.6s ease, transform 2s ease;
+            transform: scale(1.05);
+            z-index: -3;
         }
 
-        .backdrop-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0.3;
-            filter: blur(2px);
+        .background-layer.visible {
+            opacity: 1;
+            transform: scale(1);
         }
 
-        .backdrop-overlay {
+        .background-tint {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(248, 250, 252, 0.1) 0%, rgba(248, 250, 252, 0.2) 100%);
+            inset: 0;
+            background: linear-gradient(180deg, rgba(2, 5, 13, 0.75) 0%, rgba(2, 5, 13, 0.95) 100%);
+            pointer-events: none;
             z-index: -2;
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .header {
-            text-align: center;
-            color: #1e293b;
-            margin-bottom: 40px;
-            animation: fadeIn 1s ease-in;
-        }
-        
-        .logo {
-            width: 300px;
-            height: 103px;
-            margin-bottom: 20px;
-            animation: sway 3s infinite;
-        }
-        
-        .title {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            color: #1e293b;
-        }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.8;
-            font-style: italic;
-            color: #64748b;
-        }
-        
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-        
-        .service-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+
+        .dashboard {
             position: relative;
-            overflow: hidden;
-        }
-        
-        .service-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-        }
-        
-        .service-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-        }
-        
-        .service-header {
+            z-index: 1;
+            margin: 0 auto;
+            max-width: 1200px;
+            padding: 48px clamp(20px, 4vw, 64px) 64px;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-        
-        .service-name {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.3rem;
-            font-weight: 600;
-        }
-        
-        .service-icon {
-            font-size: 2rem;
-        }
-        
-        .status-badge {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            animation: pulse 2s infinite;
-        }
-        
-        .status-running {
-            background: #10b981;
-            color: white;
-        }
-        
-        .status-stopped {
-            background: #ef4444;
-            color: white;
-        }
-        
-        .status-restarting {
-            background: #f59e0b;
-            color: white;
-        }
-        
-        .service-info {
-            margin-bottom: 15px;
-        }
-        
-        .service-url {
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
-        
-        .service-url a {
-            color: #3b82f6;
-            text-decoration: none;
-        }
-        
-        .service-url a:hover {
-            text-decoration: underline;
-        }
-        
-        .service-health {
-            color: #6b7280;
-            font-size: 0.85rem;
-        }
-        
-        .service-actions {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-        
-        .btn {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            text-align: center;
-        }
-        
-        .btn:hover {
-            transform: scale(1.05);
-        }
-        
-        .btn-start {
-            background: #10b981;
-            color: white;
-        }
-        
-        .btn-stop {
-            background: #ef4444;
-            color: white;
-        }
-        
-        .btn-restart {
-            background: #f59e0b;
-            color: white;
-        }
-        
-        .btn-open {
-            background: #3b82f6;
-            color: white;
-        }
-        
-        .btn-logs {
-            background: #8b5cf6;
-            color: white;
-        }
-        
-        .system-info {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 40px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        
-        .system-info h2 {
-            color: #667eea;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        
-        .system-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-        }
-        
-        .stat-card {
-            text-align: center;
-            padding: 15px;
-            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
-            border-radius: 10px;
-        }
-        
-        .stat-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .stat-label {
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin-top: 5px;
-        }
-        
-        .footer {
-            text-align: center;
-            color: white;
-            margin-top: 40px;
-            opacity: 0.8;
-        }
-        
-        .pirate-mascot {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            font-size: 3rem;
-            animation: sway 3s ease-in-out infinite;
-            cursor: pointer;
-            z-index: 1000;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes sway {
-            0%, 100% { transform: translateY(0) rotate(-5deg); }
-            50% { transform: translateY(-10px) rotate(5deg); }
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-15px); }
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-        }
-        
-        .modal-content {
-            background: white;
-            margin: 50px auto;
-            padding: 20px;
-            border-radius: 15px;
-            width: 80%;
-            max-width: 800px;
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-        
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #6b7280;
-        }
-        
-        .logs-content {
-            background: #1f2937;
-            color: #f3f4f6;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.85rem;
-            white-space: pre-wrap;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        
-        .loading {
-            text-align: center;
-            color: #1e293b;
-            font-size: 1.2rem;
-            padding: 40px;
+            flex-direction: column;
+            gap: 32px;
         }
 
-        .container {
+        .hero {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 32px;
+        }
+
+        .hero-text,
+        .hero-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 26px;
+            padding: 32px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(24px);
+        }
+
+        .hero-logo {
+            width: 72px;
+            height: auto;
+            margin-bottom: 14px;
+        }
+
+        .hero-tag {
+            color: var(--muted);
+            font-size: 0.95rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+
+        .hero-text h1 {
+            font-size: clamp(3rem, 5vw, 4.5rem);
+            margin: 0;
+            line-height: 1.05;
+        }
+
+        .hero-text h1 span {
+            color: var(--accent);
+            display: block;
+            font-weight: 600;
+        }
+
+        .hero-desc {
+            margin-top: 18px;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .hero-tags {
+            margin-top: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .hero-tags span {
+            padding: 6px 18px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        .hero-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel-heading h2 {
+            margin: 0;
+            font-size: 1.4rem;
+        }
+
+        .panel-subtitle {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .panel-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 14px;
+        }
+
+        .panel-stats div {
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 2.1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin: 6px 0;
+        }
+
+        .stat-meta {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .pirate-message {
+            border-radius: 18px;
+            border: 1px dashed rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 16px 20px;
+            font-size: 1rem;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.02em;
+            transition: opacity 0.4s ease;
+            opacity: 0;
+        }
+
+        .pirate-message.visible {
+            opacity: 1;
+        }
+
+        .services-panel {
+            background: rgba(5, 8, 17, 0.85);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 32px;
+            box-shadow: 0 32px 75px rgba(0, 0, 0, 0.35);
+        }
+
+        .services-grid {
+            margin-top: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        .service-card {
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 22px;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(6, 11, 22, 0.9));
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .service-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 55%);
+            pointer-events: none;
+        }
+
+        .service-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
             position: relative;
             z-index: 1;
         }
-        
-        @media (max-width: 768px) {
-            .services-grid {
-                grid-template-columns: 1fr;
+
+        .service-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+        }
+
+        .service-id {
+            font-size: 0.7rem;
+            letter-spacing: 0.18em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .status-running {
+            background: #59d89f;
+            box-shadow: 0 0 12px rgba(89, 216, 159, 0.7);
+        }
+
+        .status-exited,
+        .status-not-found {
+            background: #ff6b6b;
+            box-shadow: 0 0 12px rgba(255, 107, 107, 0.6);
+        }
+
+        .status-pending {
+            background: #f9c04d;
+            box-shadow: 0 0 12px rgba(249, 192, 77, 0.6);
+        }
+
+        .service-state {
+            font-size: 0.8rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .service-url {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .service-url a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .service-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .service-actions button {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 0;
+            border-radius: 999px;
+            border: none;
+            font-size: 0.9rem;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            font-weight: 600;
+        }
+
+        .service-actions button:hover {
+            transform: translateY(-2px);
+        }
+
+        .action-restart {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+        }
+
+        .action-stop {
+            background: #ff5d5d;
+            color: #fff;
+            box-shadow: 0 10px 25px rgba(255, 93, 93, 0.4);
+        }
+
+        .status-panel {
+            display: flex;
+            justify-content: center;
+        }
+
+        .status-card {
+            width: 100%;
+            max-width: 880px;
+            border-radius: 28px;
+            border: 1px solid var(--border);
+            padding: 32px;
+            background: rgba(7, 11, 22, 0.95);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+        }
+
+        .status-card-title {
+            font-size: 1.1rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .status-card-grid {
+            margin-top: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 18px;
+        }
+
+        .status-card-grid > div {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            padding: 18px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .status-label {
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .status-value {
+            font-size: 1.8rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .status-note {
+            margin-top: 18px;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 1.1rem;
+            color: var(--muted);
+        }
+
+        @media (max-width: 600px) {
+            .dashboard {
+                padding: 32px 18px 48px;
             }
-            
-            .title {
-                font-size: 2rem;
+
+            .hero,
+            .services-panel,
+            .hero-text,
+            .hero-panel {
+                padding: 24px;
             }
-            
-            .logo {
-                width: 200px;
-                height: 69px;
-            }
-            
-            .system-stats {
-                grid-template-columns: 1fr;
-            }
-            
+
             .service-actions {
-                grid-template-columns: 1fr;
+                flex-direction: column;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <img src="/images/arrmematey-logo.svg" alt="Arrmematey Logo" class="logo">
-            <p class="subtitle">Your trusty pirate crew for media treasure! 🏴‍☠️</p>
-        </div>
+    <div class="background-layer visible" id="bgLayer1"></div>
+    <div class="background-layer" id="bgLayer2"></div>
+    <div class="background-tint"></div>
 
-        <div class="system-info" id="systemInfo">
-            <div class="loading">Captain be gatherin' ship reports...</div>
-        </div>
-
-        <div class="services-grid" id="servicesGrid">
-            <div class="loading">Crew be checkin' on yer treasures...</div>
-        </div>
-
-        <div class="footer">
-            <p>🏴‍☠️ Arrmematey - Arr... Me Matey! 🍿</p>
-        </div>
-    </div>
-
-    <div class="backdrop-container" id="backdropContainer">
-        <img class="backdrop-image" id="backdropImage" src="" alt="">
-    </div>
-    <div class="backdrop-overlay"></div>
-
-    <div class="pirate-mascot" id="pirateMascot" title="Your pirate captain is always watching!">🏴‍☠️</div>
-
-    <div class="modal" id="logsModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="logsTitle">Service Logs</h3>
-                <button class="close-modal" onclick="closeLogsModal()">&times;</button>
+    <main class="dashboard">
+        <header class="hero">
+            <div class="hero-text">
+                <img src="/images/arrmematey-logo.svg" alt="Arrmematey" class="hero-logo">
+                <p class="hero-tag">Pirate crew for your media empire</p>
+                <h1>Arrmematey <span>Command Center</span></h1>
+                <p class="hero-desc">Monitor every container, guide the crew, and stay ahead of the waves with a lean control deck built for your pirate stack.</p>
+                <div class="hero-tags">
+                    <span>Realtime radar</span>
+                    <span>Fluid controls</span>
+                    <span>Cloud ready</span>
+                </div>
             </div>
-            <div class="logs-content" id="logsContent">
-                Loading logs...
+            <div class="hero-panel">
+                <div class="panel-heading">
+                    <h2>Ship readiness</h2>
+                    <p class="panel-subtitle">Refreshed every 5s</p>
+                </div>
+                <div class="panel-stats">
+                    <div>
+                        <div class="stat-label">Containers</div>
+                        <div class="stat-value" id="dockerContainers">—</div>
+                        <div class="stat-meta">total docked</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Running</div>
+                        <div class="stat-value" id="dockerRunning">—</div>
+                        <div class="stat-meta">engines online</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Images</div>
+                        <div class="stat-value" id="dockerImages">—</div>
+                        <div class="stat-meta">artifacts held</div>
+                    </div>
+                </div>
+                <div id="pirateMessage" class="pirate-message">Captain, the deck is ready.</div>
             </div>
-        </div>
-    </div>
+        </header>
 
-    <script src="/socket.io/socket.io.js"></script>
+        <section class="services-panel">
+            <div class="panel-heading">
+                <h2>Service roster</h2>
+                <p class="panel-subtitle">Open, restart, or stop any service with a single tap.</p>
+            </div>
+            <div id="servicesContainer" class="services-grid">
+                <div class="loading">Loading services...</div>
+            </div>
+        </section>
+
+        <section class="status-panel">
+            <div class="status-card">
+                <div class="status-card-title">System snapshot</div>
+                <div class="status-card-grid">
+                    <div>
+                        <div class="status-label">Last refreshed</div>
+                        <div class="status-value" id="statusRefreshed">—</div>
+                    </div>
+                    <div>
+                        <div class="status-label">Active services</div>
+                        <div class="status-value" id="statusActiveServices">—</div>
+                    </div>
+                    <div>
+                        <div class="status-label">Health</div>
+                        <div class="status-value" id="statusSystem">Awaiting...</div>
+                    </div>
+                </div>
+                <p class="status-note">Arrmematey polls Docker every 30 seconds; use the cards above for direct control.</p>
+            </div>
+        </section>
+    </main>
+
     <script>
-        const socket = io();
-        
-        // Service configuration
-        const getServiceConfig = () => {
-            return {
-                prowlarr: { port: 9696, name: 'Prowlarr', icon: '🔍', description: 'Indexer Manager' },
-                sonarr: { port: 8989, name: 'Sonarr', icon: '🎬', description: 'TV Series Butler' },
-                radarr: { port: 7878, name: 'Radarr', icon: '🎥', description: 'Movie Butler' },
-                lidarr: { port: 8686, name: 'Lidarr', icon: '🎵', description: 'Music Butler' },
-                sabnzbd: { port: 8080, name: 'SABnzbd', icon: '📥', description: 'Usenet Butler' },
-                qbittorrent: { port: 8081, name: 'qBittorrent', icon: '⬇️', description: 'Torrent Butler' },
-                jellyseerr: { port: 5055, name: 'Jellyseerr', icon: '🍿', description: 'Request Butler' }
-            };
-        };
-        
-        // Fetch services
-        async function fetchServices() {
-            try {
-                const response = await fetch('/api/services');
-                const services = await response.json();
-                renderServices(services);
-            } catch (error) {
-                console.error('Error fetching services:', error);
-                const grid = document.getElementById('servicesGrid');
-                grid.innerHTML = '<div class="loading">Your butler couldn\'t reach the services!</div>';
+        const backgroundImages = [
+            '/images/backgrounds/american-horror-story.jpg',
+            '/images/backgrounds/big-trouble-in-little-china.jpg',
+            '/images/backgrounds/bobs-burgers.jpg',
+            '/images/backgrounds/ghostbusters.jpg',
+            '/images/backgrounds/ghosts.jpg',
+            '/images/backgrounds/teenage-mutant-ninja-turtles.jpg'
+        ];
+
+        class BackgroundRotator {
+            constructor(images, interval = 5000) {
+                this.images = images;
+                this.interval = interval;
+                this.layers = [
+                    document.getElementById('bgLayer1'),
+                    document.getElementById('bgLayer2')
+                ];
+                this.visibleLayer = 0;
+                this.imageIndex = 0;
+                this.initLayers();
+            }
+
+            initLayers() {
+                this.layers.forEach(layer => layer.classList.remove('visible'));
+                this.layers[this.visibleLayer].style.backgroundImage = `url('${this.images[0]}')`;
+                this.layers[this.visibleLayer].classList.add('visible');
+                this.schedule();
+            }
+
+            schedule() {
+                this.timer = setInterval(() => this.rotate(), this.interval);
+            }
+
+            rotate() {
+                this.imageIndex = (this.imageIndex + 1) % this.images.length;
+                const nextLayerIndex = 1 - this.visibleLayer;
+                const nextLayer = this.layers[nextLayerIndex];
+                nextLayer.style.backgroundImage = `url('${this.images[this.imageIndex]}')`;
+                nextLayer.classList.add('visible');
+                this.layers[this.visibleLayer].classList.remove('visible');
+                this.visibleLayer = nextLayerIndex;
             }
         }
-        
-        // Fetch system info
+
+        const pirateMessages = [
+            'Ahoy! The crew is lined up and ready.',
+            'Storm watch: containers holding steady.',
+            'Fresh rum for the docker decks!',
+            'Course plotted. System signals look clear.',
+            'Treasure spotted: all services responding.',
+            "Batten down the hatches. Everything's calm."
+        ];
+
+        let pirateMessageTimer;
+
+        function showPirateMessage(customText) {
+            const messageEl = document.getElementById('pirateMessage');
+            const text = customText || pirateMessages[Math.floor(Math.random() * pirateMessages.length)];
+            messageEl.textContent = text;
+            messageEl.classList.add('visible');
+            window.clearTimeout(pirateMessageTimer);
+            pirateMessageTimer = window.setTimeout(() => {
+                messageEl.classList.remove('visible');
+            }, 5000);
+        }
+
+        function createServiceCard(service) {
+            const rawStatus = (service.status || 'unknown').toLowerCase();
+            const statusClass = rawStatus === 'running'
+                ? 'status-dot status-running'
+                : rawStatus === 'exited'
+                    ? 'status-dot status-exited'
+                    : rawStatus === 'not_found'
+                        ? 'status-dot status-not-found'
+                        : 'status-dot status-pending';
+            const health = service.health || service.status || 'Unknown';
+            const launchLabel = service.url
+                ? `<a href="${service.url}" target="_blank" rel="noreferrer">Open dashboard</a>`
+                : 'No URL available';
+            const safeId = service.id || '';
+            const actionDisabled = safeId === '' ? 'disabled' : '';
+            const restartAction = safeId ? `onclick="restartService('${safeId}')"` : '';
+            const stopAction = safeId ? `onclick="stopService('${safeId}')"` : '';
+            return `
+                <article class="service-card">
+                    <div class="service-card-header">
+                        <div class="${statusClass}"></div>
+                        <div>
+                            <div class="service-title">${service.icon || '⚓'} ${service.name || 'Unknown'}</div>
+                            <div class="service-id">${service.id || '—'}</div>
+                        </div>
+                        <span class="service-state">${health}</span>
+                    </div>
+                    <p class="service-url">${launchLabel}</p>
+                    <div class="service-actions">
+                        <button class="action-restart" ${actionDisabled} ${restartAction}>Restart</button>
+                        <button class="action-stop" ${actionDisabled} ${stopAction}>Stop</button>
+                    </div>
+                </article>
+            `;
+        }
+
+        async function fetchServices() {
+            const container = document.getElementById('servicesContainer');
+            container.innerHTML = '<div class="loading">Loading services...</div>';
+            try {
+                const response = await fetch('/api/services');
+                if (!response.ok) {
+                    container.innerHTML = '<div class="loading">Failed to load services</div>';
+                    return;
+                }
+                const services = await response.json();
+                if (!services || services.length === 0) {
+                    container.innerHTML = '<div class="loading">No services found</div>';
+                    return;
+                }
+                container.innerHTML = services.map(s => createServiceCard(s)).join('');
+            } catch (error) {
+                console.error('Error fetching services:', error);
+                container.innerHTML = '<div class="loading">Error fetching services</div>';
+            }
+        }
+
         async function fetchSystemInfo() {
             try {
                 const response = await fetch('/api/system/info');
-                const info = await response.json();
-                renderSystemInfo(info);
+                if (!response.ok) {
+                    return;
+                }
+                const data = await response.json();
+                const docker = data.docker || {};
+                document.getElementById('dockerContainers').textContent = docker.containers ?? '—';
+                document.getElementById('dockerRunning').textContent = docker.running ?? '—';
+                document.getElementById('dockerImages').textContent = docker.images ?? '—';
+                const servicesCount = (data.services && data.services.length) || 0;
+                document.getElementById('statusActiveServices').textContent = `${servicesCount} tracked`;
+                document.getElementById('statusRefreshed').textContent = new Date().toLocaleTimeString();
+                const healthText = docker.running > 0 ? 'Crew ready' : 'All docked';
+                document.getElementById('statusSystem').textContent = healthText;
             } catch (error) {
                 console.error('Error fetching system info:', error);
-                const systemInfo = document.getElementById('systemInfo');
-                systemInfo.innerHTML = '<h2>System Information</h2><div class="loading">Butler couldn\'t gather system info!</div>';
             }
         }
-        
-        // Render services
-        function renderServices(services) {
-            const grid = document.getElementById('servicesGrid');
-            const config = getServiceConfig();
-            
-            grid.innerHTML = services.map(service => {
-                const serviceConfig = config[service.id];
-                if (!serviceConfig) return '';
-                
-                return `
-                    <div class="service-card">
-                        <div class="service-header">
-                            <div class="service-name">
-                                <span class="service-icon">${serviceConfig.icon}</span>
-                                <div>
-                                    <span>${service.name}</span>
-                                    <div style="font-size: 0.8rem; color: #6b7280;">${serviceConfig.description}</div>
-                                </div>
-                            </div>
-                            <div class="status-badge status-${service.status}">
-                                ${service.status}
-                            </div>
-                        </div>
-                        <div class="service-info">
-                            <div class="service-url">
-                                <strong>Service Address:</strong> <a href="${service.url}" target="_blank">${service.url}</a>
-                            </div>
-                            <div class="service-health">
-                                <strong>Status:</strong> ${service.health}
-                            </div>
-                        </div>
-                        <div class="service-actions">
-                            <button class="btn btn-start" onclick="controlService('${service.id}', 'start')" 
-                                    ${service.status === 'running' ? 'disabled' : ''}>
-                                Start
-                            </button>
-                            <button class="btn btn-stop" onclick="controlService('${service.id}', 'stop')"
-                                    ${service.status !== 'running' ? 'disabled' : ''}>
-                                Stop
-                            </button>
-                            <button class="btn btn-restart" onclick="controlService('${service.id}', 'restart')">
-                                Restart
-                            </button>
-                            <button class="btn btn-open" onclick="window.open('${service.url}', '_blank')">
-                                Open
-                            </button>
-                            <button class="btn btn-logs" onclick="viewLogs('${service.id}', '${service.name}')">
-                                Logs
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-        
-        // Render system info
-        function renderSystemInfo(info) {
-            const systemInfo = document.getElementById('systemInfo');
-            
-            systemInfo.innerHTML = `
-                <h2>🎭 Butler's System Report</h2>
-                <div class="system-stats">
-                    <div class="stat-card">
-                        <div class="stat-number">${info.docker?.version || 'N/A'}</div>
-                        <div class="stat-label">Docker Version</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${info.docker?.containers || '0'}</div>
-                        <div class="stat-label">Total Containers</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${info.docker?.running || '0'}</div>
-                        <div class="stat-label">Running</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${info.services?.length || '0'}</div>
-                        <div class="stat-label">Media Services</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${info.docker?.images || '0'}</div>
-                        <div class="stat-label">Docker Images</div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Control service
-        async function controlService(serviceId, action) {
+
+        async function restartService(serviceId) {
             try {
-                const response = await fetch(`/api/service/${serviceId}/${action}`, {
-                    method: 'POST'
-                });
-                
+                const response = await fetch(`/api/service/${serviceId}/restart`, { method: 'POST' });
                 if (response.ok) {
-                    await fetchServices();
-                    // Add a fun message
-                    showPirateMessage(`Your ${action} command for ${serviceId} has been sent!`);
-                }
-            } catch (error) {
-                console.error('Error controlling service:', error);
-                showPirateMessage(`Captain encountered an error with ${serviceId}!`, 'error');
-            }
-        }
-        
-        // View logs
-        async function viewLogs(serviceId, serviceName) {
-            try {
-                const response = await fetch(`/api/service/${serviceId}/logs`);
-                const data = await response.json();
-                
-                document.getElementById('logsTitle').textContent = `📋 ${serviceName} Logs`;
-                document.getElementById('logsContent').textContent = data.logs || 'No logs available';
-                document.getElementById('logsModal').style.display = 'block';
-            } catch (error) {
-                console.error('Error fetching logs:', error);
-                document.getElementById('logsContent').textContent = 'Error loading logs';
-                document.getElementById('logsModal').style.display = 'block';
-            }
-        }
-        
-        // Close logs modal
-        function closeLogsModal() {
-            document.getElementById('logsModal').style.display = 'none';
-        }
-        
-        // Pirate crew message
-        function showPirateMessage(message, type = 'info') {
-            const mascot = document.getElementById('pirateMascot');
-            const originalTitle = mascot.title;
-            
-            mascot.title = message;
-            
-            setTimeout(() => {
-                mascot.title = originalTitle;
-            }, 3000);
-            
-            // Add a little sway
-            mascot.style.animation = 'none';
-            setTimeout(() => {
-                mascot.style.animation = 'sway 0.5s ease-in-out';
-            }, 10);
-        }
-        
-        // Socket.io event listeners
-        socket.on('containerUpdate', (containers) => {
-            fetchServices();
-        });
-        
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('logsModal');
-            if (event.target === modal) {
-                modal.style.display = 'none';
-            }
-        }
-        
-        // Butler mascot interactions
-        document.getElementById('butlerMascot').addEventListener('click', () => {
-            showButlerMessage('Your butler is always at your service! 🎭');
-        });
-        
-        // Initial load
-        fetchServices();
-        fetchSystemInfo();
-        
-        // Refresh every 30 seconds
-        setInterval(() => {
-            fetchServices();
-            fetchSystemInfo();
-        }, 30000);
-        
-        // Pirate says hello after page load
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                showPirateMessage('Ahoy! Your pirate captain is ready to set sail! 🏴‍☠️');
-            }, 1000);
-        });
-        
-        // Pirate mascot interactions
-        document.getElementById('pirateMascot').addEventListener('click', () => {
-            showPirateMessage('Arr... me matey! Captain at yer service! 🏴‍☠️');
-        });
-
-        // Fanart.tv Backdrop functionality
-        async function loadBackdrop() {
-            try {
-                console.log('🔄 Loading backdrop...');
-                const response = await fetch('/api/fanart/backdrop');
-                const data = await response.json();
-                
-                console.log('📸 Backdrop response:', data);
-                
-                if (data.backdropUrl) {
-                    const backdropImage = document.getElementById('backdropImage');
-                    console.log('🎯 Found backdrop image element:', backdropImage);
-                    console.log('✅ Backdrop URL found:', data.backdropUrl);
-                    console.log('🎬 Movie title:', data.title);
-                    
-                    const timestamp = new Date().getTime();
-                    const fullUrl = data.backdropUrl + '?t=' + timestamp;
-                    
-                    console.log('🖼️ Setting backdrop src to:', fullUrl);
-                    
-                    backdropImage.src = fullUrl;
-                    backdropImage.alt = `Background from ${data.title}`;
-                    
-                    console.log('⚙️ Backdrop image src after setting:', backdropImage.src);
-                    
-                    // Preload the image
-                    const img = new Image();
-                    img.onload = () => {
-                        console.log('🎉 Backdrop loaded successfully:', data.title);
-                        backdropImage.style.opacity = '0.3';
-                    };
-                    img.onerror = () => {
-                        console.error('❌ Failed to load backdrop image:', data.backdropUrl);
-                    };
-                    img.src = data.backdropUrl + '?t=' + timestamp;
+                    showPirateMessage(`🔄 ${serviceId} be restarted!`);
+                    fetchServices();
                 } else {
-                    console.log('❌ No backdrop URL returned from API');
+                    showPirateMessage(`⚠️ Failed to restart ${serviceId}`);
                 }
             } catch (error) {
-                console.error('💥 Error fetching backdrop:', error);
+                console.error('Error restarting service:', error);
+                showPirateMessage(`⚠️ Error restarting ${serviceId}`);
             }
         }
 
-        // Load everything on page load
-        window.addEventListener('load', () => {
-            // Load backdrop
-            loadBackdrop();
-            
-            // Initial service and system data
+        async function stopService(serviceId) {
+            try {
+                const response = await fetch(`/api/service/${serviceId}/stop`, { method: 'POST' });
+                if (response.ok) {
+                    showPirateMessage(`⏹ ${serviceId} be stopped!`);
+                    fetchServices();
+                } else {
+                    showPirateMessage(`⚠️ Failed to stop ${serviceId}`);
+                }
+            } catch (error) {
+                console.error('Error stopping service:', error);
+                showPirateMessage(`⚠️ Error stopping ${serviceId}`);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new BackgroundRotator(backgroundImages, 5000);
             fetchServices();
             fetchSystemInfo();
-            
-            // Pirate greeting
-            setTimeout(() => {
-                showPirateMessage('Ahoy! Captain be ready to set sail! 🏴‍☠️');
-            }, 1000);
-            
-            // Refresh backdrop every 5 minutes
-            setInterval(loadBackdrop, 300000);
-            
-            // Refresh services every 30 seconds
+            setTimeout(() => showPirateMessage(), 800);
             setInterval(() => {
                 fetchServices();
                 fetchSystemInfo();
             }, 30000);
+            setInterval(() => {
+                if (Math.random() > 0.7) {
+                    showPirateMessage();
+                }
+            }, 20000);
         });
+    </script>
 </body>
 </html>
