@@ -172,7 +172,10 @@ select_storage() {
     echo ""
     print_pirate "Select storage locations to pass through to container:"
     echo "================================================================="
-    
+    print_status "Available media paths: ${#AVAILABLE_MEDIA_PATHS[@]}"
+    print_status "Available download paths: ${#AVAILABLE_DOWNLOAD_PATHS[@]}"
+    print_status "Available config paths: ${#AVAILABLE_CONFIG_PATHS[@]}"
+
     # Media storage selection
     echo ""
     echo "🎬 Media Storage (for your media library):"
@@ -184,13 +187,16 @@ select_storage() {
             echo "  $((i+1))) $display [$size available]"
         done
         echo "  $((i+2))) Custom path"
+        echo "  (Select $((i+2)) for custom path)"
     else
         echo "  1) Custom path (no common locations found)"
+        echo "  (Only option available)"
     fi
-    
+
     echo ""
     read -p "Select media storage (number): " media_selection
-    
+    print_status "Selected media storage: $media_selection"
+
     # Download storage selection
     echo ""
     echo "📥 Download Storage (for downloads):"
@@ -202,13 +208,16 @@ select_storage() {
             echo "  $((i+1))) $display [$size available]"
         done
         echo "  $((i+2))) Custom path"
+        echo "  (Select $((i+2)) for custom path)"
     else
         echo "  1) Custom path (no common locations found)"
+        echo "  (Only option available)"
     fi
-    
+
     echo ""
     read -p "Select download storage (number): " download_selection
-    
+    print_status "Selected download storage: $download_selection"
+
     # Config backup selection
     echo ""
     echo "💾 Config Backup Storage (for Docker configs):"
@@ -222,14 +231,19 @@ select_storage() {
         done
         CONFIG_CUSTOM_INDEX=$(( ${#AVAILABLE_CONFIG_PATHS[@]} + 1 ))
         echo "  $CONFIG_CUSTOM_INDEX) Custom path"
+        echo "  (Select $CONFIG_CUSTOM_INDEX for custom path)"
     else
         echo "  1) Custom path (no common locations found)"
+        echo "  (Only option available)"
         CONFIG_CUSTOM_INDEX=1
     fi
     echo ""
     read -p "Select config storage (number): " config_selection
+    print_status "Selected config storage: $config_selection"
+    print_status "CONFIG_CUSTOM_INDEX: $CONFIG_CUSTOM_INDEX"
 
     echo ""
+    print_status "Storage selection complete"
 }
 
 # Get custom paths if needed
@@ -239,31 +253,43 @@ get_custom_paths() {
     CUSTOM_CONFIG_PATH=""
 
     print_status "Processing custom paths..."
+    print_status "Media selection: $media_selection, Available paths: ${#AVAILABLE_MEDIA_PATHS[@]}"
+    print_status "Download selection: $download_selection, Available paths: ${#AVAILABLE_DOWNLOAD_PATHS[@]}"
+    print_status "Config selection: $config_selection, Available paths: ${#AVAILABLE_CONFIG_PATHS[@]}"
 
-    # Custom media path - selection is the last option (available_paths + 1)
+    # Custom media path - selection equals max (last option means custom)
     local max_media_selection=$((${#AVAILABLE_MEDIA_PATHS[@]} + 1))
-    if [[ "$media_selection" -ge "$max_media_selection" ]]; then
+    if [[ "$media_selection" -eq "$max_media_selection" ]]; then
+        print_status "Requesting custom media path..."
         read -p "Enter custom media path (e.g., /mnt/my-media): " CUSTOM_MEDIA_PATH
         if [[ ! -d "$CUSTOM_MEDIA_PATH" ]]; then
             print_warning "Media path doesn't exist. It will be created if possible."
         fi
+        print_status "Custom media path set to: $CUSTOM_MEDIA_PATH"
     fi
 
-    # Custom download path - selection is the last option (available_paths + 1)
+    # Custom download path - selection equals max (last option means custom)
     local max_download_selection=$((${#AVAILABLE_DOWNLOAD_PATHS[@]} + 1))
-    if [[ "$download_selection" -ge "$max_download_selection" ]]; then
+    if [[ "$download_selection" -eq "$max_download_selection" ]]; then
+        print_status "Requesting custom download path..."
         read -p "Enter custom download path (e.g., /tmp/downloads): " CUSTOM_DOWNLOAD_PATH
         if [[ ! -d "$CUSTOM_DOWNLOAD_PATH" ]]; then
             print_warning "Download path doesn't exist. It will be created if possible."
         fi
+        print_status "Custom download path set to: $CUSTOM_DOWNLOAD_PATH"
     fi
 
     # Custom config path
-    if [[ "$config_selection" -ge "$CONFIG_CUSTOM_INDEX" ]]; then
+    if [[ "$config_selection" -eq "$CONFIG_CUSTOM_INDEX" ]]; then
+        print_status "Requesting custom config path..."
         read -p "Enter custom config path (e.g., /opt/arrmematey-config): " CUSTOM_CONFIG_PATH
+        print_status "Custom config path set to: $CUSTOM_CONFIG_PATH"
     fi
 
     print_status "Custom paths processing complete"
+    print_status "CUSTOM_MEDIA_PATH: $CUSTOM_MEDIA_PATH"
+    print_status "CUSTOM_DOWNLOAD_PATH: $CUSTOM_DOWNLOAD_PATH"
+    print_status "CUSTOM_CONFIG_PATH: $CUSTOM_CONFIG_PATH"
 }
 
 # Generate storage mount configuration
@@ -272,14 +298,24 @@ generate_storage_mounts() {
     MOUNT_COUNTER=0
 
     print_status "Generating storage mounts..."
+    print_status "Media selection: $media_selection, Available media paths: ${#AVAILABLE_MEDIA_PATHS[@]}"
+    print_status "Download selection: $download_selection, Available download paths: ${#AVAILABLE_DOWNLOAD_PATHS[@]}"
+    print_status "Config selection: $config_selection, Available config paths: ${#AVAILABLE_CONFIG_PATHS[@]}"
 
     # Media storage
     local media_path=""
     local max_media_selection=$((${#AVAILABLE_MEDIA_PATHS[@]} + 1))
-    if [[ "$media_selection" -ge 1 && "$media_selection" -lt "$max_media_selection" ]]; then
+
+    # Check if selection is within available paths
+    if [[ "$media_selection" -ge 1 && "$media_selection" -le ${#AVAILABLE_MEDIA_PATHS[@]} ]]; then
         media_path="/${AVAILABLE_MEDIA_PATHS[$((media_selection-1))]}"
-    elif [[ -n "$CUSTOM_MEDIA_PATH" ]]; then
+        print_status "Using predefined media path: $media_path"
+    # Check if custom path was selected and exists
+    elif [[ "$media_selection" -eq "$max_media_selection" && -n "$CUSTOM_MEDIA_PATH" ]]; then
         media_path="$CUSTOM_MEDIA_PATH"
+        print_status "Using custom media path: $media_path"
+    else
+        print_warning "Invalid media selection or missing custom path"
     fi
 
     if [[ -n "$media_path" ]]; then
@@ -292,10 +328,17 @@ generate_storage_mounts() {
     # Download storage
     local download_path=""
     local max_download_selection=$((${#AVAILABLE_DOWNLOAD_PATHS[@]} + 1))
-    if [[ "$download_selection" -ge 1 && "$download_selection" -lt "$max_download_selection" ]]; then
+
+    # Check if selection is within available paths
+    if [[ "$download_selection" -ge 1 && "$download_selection" -le ${#AVAILABLE_DOWNLOAD_PATHS[@]} ]]; then
         download_path="/${AVAILABLE_DOWNLOAD_PATHS[$((download_selection-1))]}"
-    elif [[ -n "$CUSTOM_DOWNLOAD_PATH" ]]; then
+        print_status "Using predefined download path: $download_path"
+    # Check if custom path was selected and exists
+    elif [[ "$download_selection" -eq "$max_download_selection" && -n "$CUSTOM_DOWNLOAD_PATH" ]]; then
         download_path="$CUSTOM_DOWNLOAD_PATH"
+        print_status "Using custom download path: $download_path"
+    else
+        print_warning "Invalid download selection or missing custom path"
     fi
 
     if [[ -n "$download_path" ]]; then
@@ -308,10 +351,17 @@ generate_storage_mounts() {
     # Config storage
     local config_path=""
     local max_config_selection=$((${#AVAILABLE_CONFIG_PATHS[@]} + 1))
-    if [[ "$config_selection" -ge 1 && "$config_selection" -lt "$max_config_selection" ]]; then
+
+    # Check if selection is within available paths
+    if [[ "$config_selection" -ge 1 && "$config_selection" -le ${#AVAILABLE_CONFIG_PATHS[@]} ]]; then
         config_path="/${AVAILABLE_CONFIG_PATHS[$((config_selection-1))]}"
-    elif [[ -n "$CUSTOM_CONFIG_PATH" ]]; then
+        print_status "Using predefined config path: $config_path"
+    # Check if custom path was selected and exists
+    elif [[ "$config_selection" -eq "$max_config_selection" && -n "$CUSTOM_CONFIG_PATH" ]]; then
         config_path="$CUSTOM_CONFIG_PATH"
+        print_status "Using custom config path: $config_path"
+    else
+        print_warning "Invalid config selection or missing custom path"
     fi
 
     if [[ -n "$config_path" ]]; then
@@ -322,6 +372,7 @@ generate_storage_mounts() {
     fi
 
     print_status "Storage mounts generation complete"
+    print_status "Final STORAGE_MOUNTS: $STORAGE_MOUNTS"
 }
 
 # Container configuration
