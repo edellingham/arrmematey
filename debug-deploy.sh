@@ -56,19 +56,47 @@ else
 fi
 
 echo ""
-echo "5. Summary of fixes applied:"
+echo "5. Testing ACTUAL template detection (this is important!)..."
+
+echo "   5a. Testing pvesm list with JSON parsing:"
+if command -v jq &> /dev/null; then
+    echo "      ✅ jq is available"
+    raw_templates=$(pvesm list -content vztmpl -json 2>/dev/null)
+    if [[ $? -eq 0 && -n "$raw_templates" ]]; then
+        echo "      ✅ JSON command successful"
+        filtered_templates=$(echo "$raw_templates" | jq -r '.[] | select(.volid | contains("ubuntu") or contains("debian")) | .volid' 2>/dev/null)
+        echo "      Filtered templates:"
+        echo "$filtered_templates" | nl -nln 2>/dev/null || echo "      ❌ Filtering failed"
+    else
+        echo "      ❌ JSON command failed or returned empty"
+    fi
+else
+    echo "      ❌ jq not available, will use fallback method"
+fi
+
+echo ""
+echo "   5b. Testing direct template listing:"
+direct_templates=$(pvesm list -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" || echo "No templates found")
+echo "      Direct listing result:"
+echo "$direct_templates" | nl -nln
+
+echo ""
+echo "   5c. Testing all storage pools:"
+echo "      Available storages:"
+pvesm status 2>/dev/null | head -5 || echo "      Could not list storages"
+
+echo ""
+for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' | head -3 2>/dev/null || echo "local"); do
+    echo "      Templates in $storage:"
+    pvesm list "$storage" -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | head -3 || echo "      No templates found"
+done
+
+echo ""
+echo "6. Summary of fixes applied:"
 echo "   ✅ Array bounds checking fixed"
 echo "   ✅ Custom path detection uses exact equality (==)"
 echo "   ✅ CONFIG_CUSTOM_INDEX properly calculated"
 echo "   ✅ Storage mount generation handles empty arrays"
-
-echo ""
-echo "6. Testing template detection logic..."
-echo "   Proxmox template detection now includes:"
-echo "   ✅ Multiple storage pool scanning"
-echo "   ✅ Fallback to manual template entry"
-echo "   ✅ Better error messages and guidance"
-echo "   ✅ Robust parsing of multi-word template names"
 
 echo ""
 echo "7. The deployment script should now work correctly!"
