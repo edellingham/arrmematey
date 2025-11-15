@@ -67,8 +67,11 @@ ensure_host_directory() {
     local host_path="$1"
     [[ -z "$host_path" ]] && return
     if [[ ! -d "$host_path" ]]; then
-        mkdir -p "$host_path"
-        print_status "Created host storage path: $host_path"
+        if mkdir -p "$host_path"; then
+            print_status "Created host storage path: $host_path"
+        else
+            print_warning "Unable to create host storage path: $host_path (will proceed)"
+        fi
     fi
 }
 
