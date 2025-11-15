@@ -5,6 +5,14 @@
 
 set -e
 
+# Error handling
+trap 'echo -e "${RED}❌ Error occurred at line $LINENO. Exit code: $?${NC}"; exit 1' ERR
+
+# Global variables for storage paths
+declare -a AVAILABLE_MEDIA_PATHS
+declare -a AVAILABLE_DOWNLOAD_PATHS
+declare -a AVAILABLE_CONFIG_PATHS
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -229,78 +237,91 @@ get_custom_paths() {
     CUSTOM_MEDIA_PATH=""
     CUSTOM_DOWNLOAD_PATH=""
     CUSTOM_CONFIG_PATH=""
-    
-    # Custom media path
-    if [[ "$media_selection" -eq $((${#AVAILABLE_MEDIA_PATHS[@]} + 1)) ]]; then
+
+    print_status "Processing custom paths..."
+
+    # Custom media path - selection is the last option (available_paths + 1)
+    local max_media_selection=$((${#AVAILABLE_MEDIA_PATHS[@]} + 1))
+    if [[ "$media_selection" -ge "$max_media_selection" ]]; then
         read -p "Enter custom media path (e.g., /mnt/my-media): " CUSTOM_MEDIA_PATH
         if [[ ! -d "$CUSTOM_MEDIA_PATH" ]]; then
             print_warning "Media path doesn't exist. It will be created if possible."
         fi
     fi
-    
-    # Custom download path
-    if [[ "$download_selection" -eq $((${#AVAILABLE_DOWNLOAD_PATHS[@]} + 1)) ]]; then
+
+    # Custom download path - selection is the last option (available_paths + 1)
+    local max_download_selection=$((${#AVAILABLE_DOWNLOAD_PATHS[@]} + 1))
+    if [[ "$download_selection" -ge "$max_download_selection" ]]; then
         read -p "Enter custom download path (e.g., /tmp/downloads): " CUSTOM_DOWNLOAD_PATH
         if [[ ! -d "$CUSTOM_DOWNLOAD_PATH" ]]; then
             print_warning "Download path doesn't exist. It will be created if possible."
         fi
     fi
-    
+
     # Custom config path
-    if [[ "$config_selection" -eq "$CONFIG_CUSTOM_INDEX" ]]; then
+    if [[ "$config_selection" -ge "$CONFIG_CUSTOM_INDEX" ]]; then
         read -p "Enter custom config path (e.g., /opt/arrmematey-config): " CUSTOM_CONFIG_PATH
     fi
+
+    print_status "Custom paths processing complete"
 }
 
 # Generate storage mount configuration
 generate_storage_mounts() {
     STORAGE_MOUNTS=""
     MOUNT_COUNTER=0
-    
+
+    print_status "Generating storage mounts..."
+
     # Media storage
     local media_path=""
-    if [[ "$media_selection" -le ${#AVAILABLE_MEDIA_PATHS[@]} ]]; then
+    local max_media_selection=$((${#AVAILABLE_MEDIA_PATHS[@]} + 1))
+    if [[ "$media_selection" -ge 1 && "$media_selection" -lt "$max_media_selection" ]]; then
         media_path="/${AVAILABLE_MEDIA_PATHS[$((media_selection-1))]}"
-    else
+    elif [[ -n "$CUSTOM_MEDIA_PATH" ]]; then
         media_path="$CUSTOM_MEDIA_PATH"
     fi
-    
+
     if [[ -n "$media_path" ]]; then
         ensure_host_directory "$media_path"
         STORAGE_MOUNTS+="--mp$MOUNT_COUNTER $media_path:/home/ed/Media,shared=1 "
         ((MOUNT_COUNTER++))
         print_status "Media storage: $media_path → /home/ed/Media"
     fi
-    
+
     # Download storage
     local download_path=""
-    if [[ "$download_selection" -le ${#AVAILABLE_DOWNLOAD_PATHS[@]} ]]; then
+    local max_download_selection=$((${#AVAILABLE_DOWNLOAD_PATHS[@]} + 1))
+    if [[ "$download_selection" -ge 1 && "$download_selection" -lt "$max_download_selection" ]]; then
         download_path="/${AVAILABLE_DOWNLOAD_PATHS[$((download_selection-1))]}"
-    else
+    elif [[ -n "$CUSTOM_DOWNLOAD_PATH" ]]; then
         download_path="$CUSTOM_DOWNLOAD_PATH"
     fi
-    
+
     if [[ -n "$download_path" ]]; then
         ensure_host_directory "$download_path"
         STORAGE_MOUNTS+="--mp$MOUNT_COUNTER $download_path:/home/ed/Downloads,shared=1 "
         ((MOUNT_COUNTER++))
         print_status "Download storage: $download_path → /home/ed/Downloads"
     fi
-    
+
     # Config storage
     local config_path=""
-    if [[ "$config_selection" -le ${#AVAILABLE_CONFIG_PATHS[@]} ]]; then
+    local max_config_selection=$((${#AVAILABLE_CONFIG_PATHS[@]} + 1))
+    if [[ "$config_selection" -ge 1 && "$config_selection" -lt "$max_config_selection" ]]; then
         config_path="/${AVAILABLE_CONFIG_PATHS[$((config_selection-1))]}"
-    else
+    elif [[ -n "$CUSTOM_CONFIG_PATH" ]]; then
         config_path="$CUSTOM_CONFIG_PATH"
     fi
-    
+
     if [[ -n "$config_path" ]]; then
         ensure_host_directory "$config_path"
         STORAGE_MOUNTS+="--mp$MOUNT_COUNTER $config_path:/home/ed/Config,shared=1 "
         ((MOUNT_COUNTER++))
         print_status "Config storage: $config_path → /home/ed/Config"
     fi
+
+    print_status "Storage mounts generation complete"
 }
 
 # Container configuration
@@ -539,19 +560,19 @@ main() {
     echo "║         Arr... Me Matey!                                   ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    
+
     check_proxmox
-    get_host_storage
-    select_storage
-    get_custom_paths
-    generate_storage_mounts
-    select_template
-    configure_container
-    create_container
-    start_container
-    wait_for_container
-    install_arrmematey
-    show_container_info
+    get_host_storage || { print_error "Failed to get host storage"; exit 1; }
+    select_storage || { print_error "Failed to select storage"; exit 1; }
+    get_custom_paths || { print_error "Failed to get custom paths"; exit 1; }
+    generate_storage_mounts || { print_error "Failed to generate storage mounts"; exit 1; }
+    select_template || { print_error "Failed to select template"; exit 1; }
+    configure_container || { print_error "Failed to configure container"; exit 1; }
+    create_container || { print_error "Failed to create container"; exit 1; }
+    start_container || { print_error "Failed to start container"; exit 1; }
+    wait_for_container || { print_error "Container failed to start"; exit 1; }
+    install_arrmematey || { print_error "Failed to install Arrmematey"; exit 1; }
+    show_container_info || { print_error "Failed to show container info"; exit 1; }
 }
 
 # Run the deployment
