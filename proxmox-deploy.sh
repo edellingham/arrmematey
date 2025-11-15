@@ -204,14 +204,23 @@ select_storage() {
     # Config backup selection
     echo ""
     echo "💾 Config Backup Storage (for Docker configs):"
-    echo "  1) /$(logname)/arrmematey-config"
-    if [[ -d "/mnt/config" ]]; then
-        echo "  2) /mnt/config/arrmematey"
+    CONFIG_CUSTOM_INDEX=1
+    if [[ ${#AVAILABLE_CONFIG_PATHS[@]} -gt 0 ]]; then
+        for i in "${!AVAILABLE_CONFIG_PATHS[@]}"; do
+            local path="${AVAILABLE_CONFIG_PATHS[$i]}"
+            local display="/$path"
+            local size=$(get_available_space "$display")
+            echo "  $((i+1))) $display [$size available]"
+        done
+        CONFIG_CUSTOM_INDEX=$(( ${#AVAILABLE_CONFIG_PATHS[@]} + 1 ))
+        echo "  $CONFIG_CUSTOM_INDEX) Custom path"
+    else
+        echo "  1) Custom path (no common locations found)"
+        CONFIG_CUSTOM_INDEX=1
     fi
-    echo "  3) Custom path"
     echo ""
     read -p "Select config storage (number): " config_selection
-    
+
     echo ""
 }
 
@@ -238,7 +247,7 @@ get_custom_paths() {
     fi
     
     # Custom config path
-    if [[ "$config_selection" -eq 3 ]]; then
+    if [[ "$config_selection" -eq "$CONFIG_CUSTOM_INDEX" ]]; then
         read -p "Enter custom config path (e.g., /opt/arrmematey-config): " CUSTOM_CONFIG_PATH
     fi
 }
@@ -280,11 +289,11 @@ generate_storage_mounts() {
     
     # Config storage
     local config_path=""
-    case $config_selection in
-        1) config_path="/$(logname)/arrmematey-config" ;;
-        2) config_path="/mnt/config/arrmematey" ;;
-        *) config_path="$CUSTOM_CONFIG_PATH" ;;
-    esac
+    if [[ "$config_selection" -le ${#AVAILABLE_CONFIG_PATHS[@]} ]]; then
+        config_path="/${AVAILABLE_CONFIG_PATHS[$((config_selection-1))]}"
+    else
+        config_path="$CUSTOM_CONFIG_PATH"
+    fi
     
     if [[ -n "$config_path" ]]; then
         ensure_host_directory "$config_path"
