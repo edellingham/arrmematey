@@ -109,29 +109,39 @@ get_storage_pools() {
 get_ct_templates() {
     print_pirate "Checking available CT templates..."
 
-    # Method 1: Try JSON parsing with jq
-    local templates=$(pvesm list -content vztmpl -json 2>/dev/null | jq -r '.[] | select(.volid | contains("ubuntu") or contains("debian")) | .volid' 2>/dev/null || echo "")
+    local all_templates=""
 
-    # If JSON method fails or returns empty, try direct listing
-    if [[ -z "$templates" ]]; then
-        print_status "JSON parsing failed or no results, trying direct listing..."
-        # Get all template volumes and filter for Ubuntu/Debian
-        templates=$(pvesm list -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | awk '{print $1}' || echo "")
-    fi
+    # Method: Search each storage pool individually (more reliable)
+    for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' 2>/dev/null); do
+        print_status "Checking storage pool: $storage"
+        local storage_templates=$(pvesm list "$storage" -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | awk '{print "'$storage'":vztmpl/"$1"}' 2>/dev/null || echo "")
 
-    if [[ -z "$templates" ]]; then
+        if [[ -n "$storage_templates" ]]; then
+            print_status "  Found templates in $storage:"
+            echo "$storage_templates" | nl -nln
+            all_templates="$all_templates"$'\n'"$storage_templates"
+        fi
+    done
+
+    # Clean up and remove empty lines
+    all_templates=$(echo "$all_templates" | grep -v '^[[:space:]]*$' | sort | uniq)
+
+    if [[ -z "$all_templates" ]]; then
         print_warning "No Ubuntu/Debian templates found. You may need to download one first."
         print_info "Download templates from: https://pve.proxmox.com/pve-docs/pve-admin-guide.html#pve_2_ct_templates"
 
-        # Show what's actually available
+        # Show what's actually available as fallback
         print_info "Available templates on this system:"
-        pvesm list -content vztmpl 2>/dev/null | head -10 || echo "Could not list templates"
+        for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' 2>/dev/null | head -3); do
+            print_info "Storage $storage:"
+            pvesm list "$storage" -content vztmpl 2>/dev/null | head -5 || echo "  Could not list"
+        done
     else
-        print_status "Found templates:"
-        echo "$templates" | nl -nln
+        print_status "All available templates:"
+        echo "$all_templates" | nl -nln
     fi
 
-    echo "$templates"
+    echo "$all_templates"
 }
 
 # Get host storage locations
