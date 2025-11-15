@@ -33,6 +33,15 @@ print_pirate() {
     echo -e "${PURPLE}🏴‍☠️ Captain:${NC} $1"
 }
 
+get_available_space() {
+    local target="$1"
+    if [[ -d "$target" ]]; then
+        df -h "$target" 2>/dev/null | awk 'NR==2{print $4}' || echo "N/A"
+    else
+        echo "N/A"
+    fi
+}
+
 normalize_storage_path() {
     local path="${1:-}"
     path="${path#/}"
@@ -159,8 +168,9 @@ select_storage() {
     if [[ ${#AVAILABLE_MEDIA_PATHS[@]} -gt 0 ]]; then
         for i in "${!AVAILABLE_MEDIA_PATHS[@]}"; do
             local path="${AVAILABLE_MEDIA_PATHS[$i]}"
-            local size=$(df -h "/$path" 2>/dev/null | awk 'NR==2{print $4}' || echo "N/A")
-            echo "  $((i+1))) /$path [$size available]"
+            local display="/$path"
+            local size=$(get_available_space "$display")
+            echo "  $((i+1))) $display [$size available]"
         done
         echo "  $((i+2))) Custom path"
     else
@@ -176,8 +186,9 @@ select_storage() {
     if [[ ${#AVAILABLE_DOWNLOAD_PATHS[@]} -gt 0 ]]; then
         for i in "${!AVAILABLE_DOWNLOAD_PATHS[@]}"; do
             local path="${AVAILABLE_DOWNLOAD_PATHS[$i]}"
-            local size=$(df -h "/$path" 2>/dev/null | awk 'NR==2{print $4}' || echo "N/A")
-            echo "  $((i+1))) /$path [$size available]"
+            local display="/$path"
+            local size=$(get_available_space "$display")
+            echo "  $((i+1))) $display [$size available]"
         done
         echo "  $((i+2))) Custom path"
     else
