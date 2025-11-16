@@ -222,8 +222,7 @@ expand_docker_storage() {
             backing_fs="unknown"
         fi
     fi
-    fi
-    
+
     echo -e "${BLUE}Current setup:${NC}"
     echo "  Storage Driver: $storage_driver"
     echo "  Backing Filesystem: ${backing_fs:-unknown}"
