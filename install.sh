@@ -1072,7 +1072,6 @@ while true; do
             echo -e "${RED}Invalid option. Please select 1-5.${NC}"
             sleep 2
             ;;
-            show_help
             ;;
     esac
     echo ""
