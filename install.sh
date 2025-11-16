@@ -344,7 +344,6 @@ expand_docker_storage() {
             ;;
     esac
 }
-}
 
 # Expand overlay2 filesystem
 expand_overlay2_fs() {
