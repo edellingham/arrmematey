@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.10.2${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.10.3${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -1001,12 +1001,17 @@ start_services() {
 
     # Start services
     print_info "Starting Arrmematey stack..."
-    start_spinner "Starting all services"
-    if ! docker compose --profile full up -d &>/dev/null; then
-        stop_spinner
+    print_info "Starting all services (this may take 2-5 minutes)..."
+    print_info "⏳ Starting containers - please be patient..."
+    print_info "You'll see service startup progress below..."
+    echo ""
+
+    # Show Docker compose output with progress
+    if ! docker compose --profile full up -d 2>&1; then
+        echo ""
         error_exit "Failed to start services"
     fi
-    stop_spinner
+    echo ""
     print_success "Arrmematey services started"
 
     # Wait for services
