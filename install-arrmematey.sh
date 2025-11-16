@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.10.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.10.1${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -970,14 +970,21 @@ start_services() {
 
     # Build UI
     print_info "Building management UI..."
-    start_spinner "Installing Node.js dependencies"
+    print_info "Installing Node.js dependencies (this may take 2-5 minutes)..."
+    print_info "⏳ Installing packages - please be patient..."
+    print_info "You'll see package installation progress below..."
+    echo ""
+
     cd ui
-    if ! npm install &>/dev/null; then
-        stop_spinner
+    # Show npm install output with progress
+    if ! npm install 2>&1; then
+        echo ""
         error_exit "Failed to install Node.js dependencies"
     fi
-    stop_spinner
+    echo ""
+    print_success "Node.js dependencies installed"
 
+    print_info "Building UI Docker image..."
     start_spinner "Building UI Docker image"
     if ! docker build -t arrstack-ui . &>/dev/null; then
         stop_spinner
