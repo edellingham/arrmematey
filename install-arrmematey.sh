@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.2.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.3.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -558,20 +558,25 @@ configure_arrmematey() {
             if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
                 CONFIG_PATH="$data_dir/Config"
 
-                # Use detected paths or defaults
+                # Always use /data structure for consistency
+                # Will create symlinks later to preserve existing structure
                 if [[ -n "$downloads_path" ]]; then
-                    DOWNLOADS_PATH="$downloads_path"
+                    DOWNLOADS_PATH="$data_dir/Downloads"
+                    USE_EXISTING_DOWNLOADS=1
+                    EXISTING_DOWNLOADS_PATH="$downloads_path"
                 else
                     DOWNLOADS_PATH="$data_dir/Downloads"
                 fi
 
                 if [[ -n "$media_path" ]]; then
-                    MEDIA_PATH="$media_path"
+                    MEDIA_PATH="$data_dir/Media"
+                    USE_EXISTING_MEDIA=1
+                    EXISTING_MEDIA_PATH="$media_path"
                 else
                     MEDIA_PATH="$data_dir/Media"
                 fi
 
-                print_success "Using existing media structure: $existing_media"
+                print_success "Using existing media structure via symlinks: $existing_media"
             else
                 # Use defaults
                 CONFIG_PATH="$data_dir/Config"
@@ -632,16 +637,14 @@ create_directories() {
     # Load env
     source ~/.env
 
-    local directories=(
+    # Always create base directories in /data/arrmematey
+    local base_directories=(
         "$CONFIG_PATH"
-        "$MEDIA_PATH/Movies"
-        "$MEDIA_PATH/TV"
-        "$MEDIA_PATH/Music"
-        "$DOWNLOADS_PATH/usenet"
-        "$DOWNLOADS_PATH/torrents"
+        "$MEDIA_PATH"
+        "$DOWNLOADS_PATH"
     )
 
-    for dir in "${directories[@]}"; do
+    for dir in "${base_directories[@]}"; do
         if [[ ! -d "$dir" ]]; then
             mkdir -p "$dir"
             print_success "Created: $dir"
@@ -649,6 +652,111 @@ create_directories() {
             print_info "Already exists: $dir"
         fi
     done
+
+    # Handle existing media directories with symlinks
+    print_info "Setting up media directories..."
+
+    # Check if we should use existing media
+    if [[ -n "${USE_EXISTING_MEDIA:-}" ]] && [[ "$USE_EXISTING_MEDIA" == "1" ]]; then
+        print_info "Creating symlinks to existing media structure..."
+
+        # Map existing media to standard structure
+        local media_mappings=(
+            "$EXISTING_MEDIA_PATH/Movies:$MEDIA_PATH/Movies"
+            "$EXISTING_MEDIA_PATH/TVShows:$MEDIA_PATH/TV"
+            "$EXISTING_MEDIA_PATH/TV:$MEDIA_PATH/TV"
+            "$EXISTING_MEDIA_PATH/series:$MEDIA_PATH/TV"
+            "$EXISTING_MEDIA_PATH/Movies:$MEDIA_PATH/Movies"
+            "$EXISTING_MEDIA_PATH/Music:$MEDIA_PATH/Music"
+        )
+
+        for mapping in "${media_mappings[@]}"; do
+            IFS=':' read -r source_dir target_dir <<< "$mapping"
+
+            if [[ -d "$source_dir" ]]; then
+                # Create target parent directory
+                mkdir -p "$(dirname "$target_dir")"
+
+                # Remove target if it exists (but not if it's a symlink to our source)
+                if [[ -L "$target_dir" ]] || [[ -d "$target_dir" ]]; then
+                    if [[ ! "$target_dir" -ef "$source_dir" ]]; then
+                        rm -rf "$target_dir"
+                    fi
+                fi
+
+                # Create symlink
+                if [[ ! -e "$target_dir" ]]; then
+                    ln -s "$source_dir" "$target_dir"
+                    print_success "Symlinked: $source_dir → $target_dir"
+                else
+                    print_info "Already exists: $target_dir"
+                fi
+            fi
+        done
+    else
+        # Create standard media directories
+        local media_dirs=(
+            "$MEDIA_PATH/Movies"
+            "$MEDIA_PATH/TV"
+            "$MEDIA_PATH/Music"
+        )
+
+        for dir in "${media_dirs[@]}"; do
+            if [[ ! -d "$dir" ]]; then
+                mkdir -p "$dir"
+                print_success "Created: $dir"
+            else
+                print_info "Already exists: $dir"
+            fi
+        done
+    fi
+
+    # Handle existing downloads directories with symlinks
+    if [[ -n "${USE_EXISTING_DOWNLOADS:-}" ]] && [[ "$USE_EXISTING_DOWNLOADS" == "1" ]]; then
+        print_info "Creating symlinks to existing downloads structure..."
+
+        # Create standard download subdirectories as symlinks
+        local download_mappings=(
+            "$EXISTING_DOWNLOADS_PATH/usenet:$DOWNLOADS_PATH/usenet"
+            "$EXISTING_DOWNLOADS_PATH/torrents:$DOWNLOADS_PATH/torrents"
+        )
+
+        for mapping in "${download_mappings[@]}"; do
+            IFS=':' read -r source_dir target_dir <<< "$mapping"
+
+            if [[ -d "$source_dir" ]]; then
+                mkdir -p "$(dirname "$target_dir")"
+
+                if [[ -L "$target_dir" ]] || [[ -d "$target_dir" ]]; then
+                    if [[ ! "$target_dir" -ef "$source_dir" ]]; then
+                        rm -rf "$target_dir"
+                    fi
+                fi
+
+                if [[ ! -e "$target_dir" ]]; then
+                    ln -s "$source_dir" "$target_dir"
+                    print_success "Symlinked: $source_dir → $target_dir"
+                else
+                    print_info "Already exists: $target_dir"
+                fi
+            fi
+        done
+    else
+        # Create standard download directories
+        local download_dirs=(
+            "$DOWNLOADS_PATH/usenet"
+            "$DOWNLOADS_PATH/torrents"
+        )
+
+        for dir in "${download_dirs[@]}"; do
+            if [[ ! -d "$dir" ]]; then
+                mkdir -p "$dir"
+                print_success "Created: $dir"
+            else
+                print_info "Already exists: $dir"
+            fi
+        done
+    fi
 }
 
 ###############################################################################
@@ -849,6 +957,11 @@ display_automation_status() {
     echo "   • TV: $TV_PATH"
     echo "   • Music: $MUSIC_PATH"
     echo "   • Downloads: $DOWNLOADS_PATH"
+    echo ""
+    echo -e "${GREEN}🔗 Directory Structure:${NC}"
+    echo "   All Arrmematey data is organized under /data/arrmematey/"
+    echo "   Existing media is linked via symlinks"
+    echo "   This keeps Docker volumes clean and organized"
     echo ""
 }
 
