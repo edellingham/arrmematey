@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Arrmematey** is a Docker-based media automation stack with VPN-first security architecture. It orchestrates media managers (Sonarr, Radarr, Lidarr), download clients (SABnzbd, qBittorrent), and indexer management (Prowlarr) through a Gluetun VPN container with kill-switch protection. The project includes a pirate-themed Node.js management UI for real-time service monitoring and control.
+**Arrmematey** is a Docker-based media automation stack with VPN-first security architecture. This is an **orchestration and deployment project**, not a traditional software development project. There are no build/lint/test workflows - services are deployed via Docker Compose, and "development" primarily involves UI development and shell script modifications.
+
+**Core Purpose**: Orchestrate media managers (Sonarr, Radarr, Lidarr), download clients (SABnzbd, qBittorrent), and indexer management (Prowlarr) through a Gluetun VPN container with kill-switch protection. Includes a pirate-themed Node.js management UI for real-time service monitoring and control.
 
 ## Core Architecture
 
@@ -34,6 +36,49 @@ The stack uses profiles for flexible deployment:
 
 **Usage**: `docker-compose --profile full up -d` or `docker-compose --profile media --profile downloaders up -d`
 
+### System-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Arrmematey Stack                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────┐  ┌────────────────┐  ┌─────────────────┐   │
+│  │ Management   │  │   Jellyseerr   │  │   Recyclarr     │   │
+│  │     UI       │  │   (Requests)   │  │   (Profiles)    │   │
+│  │   :3000      │  │     :5055      │  │   (One-time)    │   │
+│  └──────┬───────┘  └────────┬───────┘  └────────┬────────┘   │
+│         │                   │                    │            │
+│  ┌──────▼──────────────────────────────────────────────────┐ │
+│  │            Docker Host Network                          │ │
+│  └──────┬──────────────────────────────────────────────────┘ │
+│         │                                                    │
+│  ┌──────▼───────┐  ┌──────────────┐  ┌────────────────────┐ │
+│  │   Prowlarr   │  │  Sonarr      │  │    Radarr         │ │
+│  │   :9696      │  │   :8989      │  │     :7878         │ │
+│  └──────┬───────┘  └──────┬───────┘  └─────────┬──────────┘ │
+│         │                  │                    │            │
+│  ┌──────▼───────┐  ┌──────▼───────┐  ┌─────────▼──────────┐ │
+│  │   SABnzbd    │  │ qBittorrent  │  │     Lidarr         │ │
+│  │    :8080     │  │    :8081     │  │     :8686          │ │
+│  └──────┬───────┘  └──────┬───────┘  └─────────┬──────────┘ │
+│         │                  │                    │            │
+│         └──────────────────┼────────────────────┘            │
+│                            │                                 │
+│  ┌─────────────────────────▼───────────────────────────────┐ │
+│  │              Gluetun VPN Container                       │ │
+│  │            (Mullvad WireGuard)                           │ │
+│  │        All downloads route through VPN                   │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Points**:
+- All download services (SABnzbd, qBittorrent, Prowlarr, Sonarr, Radarr, Lidarr) use `network_mode: "service:gluetun"`
+- Management UI and Jellyseerr run on host network for direct access
+- Health checks ensure proper startup order (VPN → Indexers → Media Managers → Downloaders)
+- Recyclarr runs once on startup to sync quality profiles
+
 ### Management UI Architecture
 - **Backend**: Express server (`ui/server.js`) with Dockerode for container management
 - **Real-time Updates**: Socket.io broadcasts container status every 5 seconds
@@ -46,9 +91,19 @@ The stack uses profiles for flexible deployment:
 - **Frontend**: Vanilla JavaScript with pirate theme, no framework
 - **Static Assets**: Served from `ui/public/`, images from `images/`
 
+## Development Environment
+
+### Codebuff Configuration
+- **Development Profile**: `codebuff.json` defines startup process for UI development
+- **Auto-start**: UI server configured to start automatically in `ui/` directory
+- **Logs**: UI output directed to `ui/logs/ui.log`
+- **Max Agent Steps**: Limited to 25 steps for efficiency
+
+**Note**: This project has **NO traditional build/lint/test commands**. It uses Docker for all deployments.
+
 ## Development Commands
 
-### UI Development
+### UI Development (Primary Development Task)
 ```bash
 # Install dependencies
 cd ui && npm install
@@ -174,6 +229,8 @@ When adding new services:
 
 ## Testing and Validation
 
+**Note**: This project uses **service-level testing via Docker health checks**, not unit/integration tests. There are no test suites to run.
+
 ### Pre-Deployment Checks
 ```bash
 # Verify Docker is running
@@ -276,6 +333,22 @@ docker exec arrstack-ui ls -la /var/run/docker.sock
 - Configured via `CLOUDFLARE_TOKEN` in `.env`
 
 ## Common Workflows
+
+### Project Types of Work
+
+**1. Service Deployment** (Primary)
+- Deploying/updating Docker services via `docker-compose`
+- Managing service configurations
+- VPN and network troubleshooting
+
+**2. UI Development** (Secondary)
+- Modifying `ui/server.js` (Express backend)
+- Editing `ui/public/index.html` (Frontend)
+- Adding new API endpoints or UI features
+
+**3. Automation Script Development** (As Needed)
+- Modifying shell scripts (`*.sh`)
+- Adding new management or health-check scripts
 
 ### Initial Setup
 1. Clone repository
