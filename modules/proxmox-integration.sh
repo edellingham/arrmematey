@@ -199,11 +199,6 @@ manual_proxmox_setup() {
 
 # Check VM resources (if running in VM)
 check_vm_resources() {
-    # Check if we're in a container/VM
-    if [[ ! -f /.dockerenv ]] && ! systemd-detect-virt &> /dev/null; then
-        return 0  # Not in a container, skip check
-    fi
-
     print_step "Checking VM resources..."
 
     # Check RAM
@@ -258,10 +253,13 @@ check_vm_resources() {
             read -p "Continue anyway? (y/N): " -n 1 -r
             echo ""
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_warning "Installation aborted due to insufficient resources"
                 exit 1
             fi
         else
-            error_exit "Insufficient VM resources. Please allocate more CPU, RAM, and storage."
+            print_warning "Automated mode: Insufficient resources detected"
+            print_warning "Installation may fail or have performance issues"
+            print_info "Recommend at least 4GB RAM, 2 CPU cores, 40GB storage"
         fi
     else
         print_success "VM resources are adequate"
