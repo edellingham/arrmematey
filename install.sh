@@ -15,6 +15,15 @@ set -e
 SCRIPT_VERSION="2.1.0"
 SCRIPT_DATE="2024-11-15"
 
+# Check if running the right version
+if [[ -z "$SCRIPT_VERSION" || -z "$SCRIPT_DATE" ]]; then
+    echo -e "${RED}❌ Version information missing!${NC}"
+    echo "You may be running a cached version of the script."
+    echo -e "${BLUE}Please run:${NC}"
+    echo "bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/install.sh)\""
+    exit 1
+fi
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -1189,6 +1198,9 @@ configure_docker_storage_driver() {
             detailed_storage_analysis
             ;;
         6)
+            fix_broken_docker
+            ;;
+        7)
             return
             ;;
         *)
@@ -1351,9 +1363,34 @@ EOF
                 echo "New container size limit: $size_limit per container"
             else
                 echo -e "${RED}❌ Docker daemon restart failed${NC}"
-                echo "Restoring backup..."
-                sudo cp "$config_dir/daemon.json.backup.$(date +%Y%m%d-%H%M%S)" "$config_dir/daemon.json" 2>/dev/null || true
-                sudo systemctl restart docker 2>/dev/null || echo "Manual intervention required"
+                echo "This usually means overlay2.size is not supported on your filesystem."
+                echo ""
+                echo "🔧 Automatic fix: Remove the problematic configuration..."
+                
+                # Find the most recent backup
+                local latest_backup=$(ls "$config_dir/daemon.json.backup."* 2>/dev/null | sort | tail -1)
+                if [[ -n "$latest_backup" ]]; then
+                    echo "Restoring from backup: $latest_backup"
+                    sudo cp "$latest_backup" "$config_dir/daemon.json"
+                else
+                    echo "Creating minimal working configuration..."
+                    sudo tee "$config_dir/daemon.json" > /dev/null << EOF
+{
+  "storage-driver": "overlay2"
+}
+EOF
+                fi
+                
+                echo "Restarting Docker with safe configuration..."
+                if sudo systemctl restart docker && sleep 3 && docker ps &>/dev/null; then
+                    echo -e "${GREEN}✅ Docker restored to working state${NC}"
+                    echo ""
+                    echo -e "${YELLOW}Note: overlay2.size limits are not supported on your current filesystem${NC}"
+                    echo "Consider upgrading to XFS or using a different storage approach."
+                else
+                    echo -e "${RED}❌ Docker still broken - manual intervention required${NC}"
+                    echo "Use Storage Management → Fix Broken Docker Daemon for advanced options"
+                fi
             fi
         fi
     else
@@ -1956,8 +1993,8 @@ check_for_updates() {
     # Try to fetch remote version (non-blocking)
     remote_script=$(timeout 5s curl -s -f "https://raw.githubusercontent.com/edellingham/arrmematey/main/install.sh" 2>/dev/null || echo "")
     if [[ -n "$remote_script" ]]; then
-        remote_version=$(echo "$remote_script" | grep -E "^SCRIPT_VERSION=" | cut -d'"' -f2 | head -1)
-        remote_date=$(echo "$remote_script" | grep -E "^SCRIPT_DATE=" | cut -d'"' -f2 | head -1)
+        remote_version=$(echo "$remote_script" | grep -E 'SCRIPT_VERSION=".*"' | sed 's/SCRIPT_VERSION="//g' | sed 's/"//g' | head -1)
+        remote_date=$(echo "$remote_script" | grep -E 'SCRIPT_DATE=".*"' | sed 's/SCRIPT_DATE="//g' | sed 's/"//g' | head -1)
     fi
 
     # Show version info
