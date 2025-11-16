@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.6.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.7.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -193,15 +193,18 @@ check_docker() {
             systemctl start docker
             systemctl enable docker
         fi
+        return 0
     else
         print_warning "Docker not found"
         return 1
     fi
+}
 
+check_npm() {
     # Check npm
     if ! command -v npm &> /dev/null; then
         print_warning "npm not found - will install"
-        return 2
+        return 1
     fi
 
     local npm_version
@@ -1222,8 +1225,7 @@ main() {
     fi
 
     # Install npm if needed
-    check_result=$?
-    if [[ $check_result -eq 2 ]]; then
+    if ! check_npm; then
         install_npm
         echo ""
     fi
