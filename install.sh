@@ -18,22 +18,45 @@ echo -e "${BLUE}🏴‍☠️ Arrmematey One-Line Installer${NC}"
 echo "================================="
 echo ""
 
-# Check requirements
+# Check requirements and setup docker-compose command
 check_docker() {
     echo -e "${BLUE}[STEP]${NC} Checking Docker..."
+
+    # Check if docker is installed
     if ! command -v docker &> /dev/null; then
         echo -e "${RED}❌ Docker is required but not installed${NC}"
         echo "Install Docker first:"
         echo "  Ubuntu/Debian: sudo apt install docker.io"
         echo "  CentOS/RHEL: sudo dnf install docker"
+        echo "  Or follow: https://docs.docker.com/get-docker/"
         exit 1
     fi
+
+    # Check if docker daemon is running
     if ! docker ps &> /dev/null; then
         echo -e "${YELLOW}⚠️ Docker daemon not running${NC}"
-        echo "Start Docker: sudo systemctl start docker"
+        echo "Start Docker:"
+        echo "  sudo systemctl start docker"
+        echo "  Or start Docker Desktop"
         exit 1
     fi
+
     echo -e "${GREEN}✅ Docker found and running${NC}"
+
+    # Set docker-compose command (supports both docker-compose and 'docker compose')
+    if command -v docker-compose &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+        echo -e "${GREEN}✅ Using docker-compose${NC}"
+    elif docker compose version &> /dev/null 2>&1; then
+        DOCKER_COMPOSE_CMD="docker compose"
+        echo -e "${GREEN}✅ Using docker compose${NC}"
+    else
+        echo -e "${RED}❌ Neither 'docker-compose' nor 'docker compose' is available${NC}"
+        echo "Install docker-compose:"
+        echo "  Ubuntu/Debian: sudo apt install docker-compose"
+        echo "  Or install Docker Desktop which includes compose"
+        exit 1
+    fi
 }
 
 # Get Mullvad ID
@@ -289,9 +312,9 @@ start_services() {
     # Create directories
     mkdir -p ./data/{media/{tv,movies,music},downloads/{complete,incomplete},config}
 
-    # Start services
+    # Start services using the detected compose command
     echo -e "${BLUE}🚀 Starting containers...${NC}"
-    docker-compose up -d
+    $DOCKER_COMPOSE_CMD up -d
 
     echo -e "${GREEN}✅ Services started${NC}"
 }
@@ -318,9 +341,9 @@ show_completion() {
     echo ""
     echo -e "${BLUE}🔧 Management:${NC}"
     echo "  cd $INSTALL_DIR"
-    echo "  docker-compose ps           # Check status"
-    echo "  docker-compose logs -f      # View logs"
-    echo "  docker-compose down         # Stop all"
+    echo "  $DOCKER_COMPOSE_CMD ps             # Check status"
+    echo "  $DOCKER_COMPOSE_CMD logs -f        # View logs"
+    echo "  $DOCKER_COMPOSE_CMD down           # Stop all"
     echo ""
     echo -e "${GREEN}🏴‍☠️ Happy treasure hunting!${NC}"
 }
