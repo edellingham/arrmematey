@@ -1939,6 +1939,53 @@ show_help() {
     read
 }
 
+# Check for script updates
+check_for_updates() {
+    echo -e "${BLUE}📦 Checking for script updates...${NC}"
+    echo ""
+
+    # Get remote script info
+    local remote_script=""
+    local remote_version=""
+    local remote_date=""
+
+    # Try to fetch remote version (non-blocking)
+    remote_script=$(timeout 5s curl -s -f "https://raw.githubusercontent.com/edellingham/arrmematey/main/install.sh" 2>/dev/null || echo "")
+    if [[ -n "$remote_script" ]]; then
+        remote_version=$(echo "$remote_script" | grep -E "^SCRIPT_VERSION=" | cut -d'"' -f2 | head -1)
+        remote_date=$(echo "$remote_script" | grep -E "^SCRIPT_DATE=" | cut -d'"' -f2 | head -1)
+    fi
+
+    # Show version info
+    echo -e "${BLUE}Script Version Information:${NC}"
+    echo "  Local Version: $SCRIPT_VERSION ($SCRIPT_DATE)"
+    if [[ -n "$remote_version" ]]; then
+        echo "  Remote Version: $remote_version ($remote_date)"
+        if [[ "$remote_version" != "$SCRIPT_VERSION" ]]; then
+            echo ""
+            echo -e "${YELLOW}⚠️  Update Available!${NC}"
+            echo "You're running an older version of the script."
+            echo "New features and fixes are available."
+            echo ""
+            echo -e "${BLUE}To get the latest version:${NC}"
+            echo "bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/install.sh)\""
+            echo ""
+            read -p "Continue with current version? (yes/NO): " continue_choice
+            if [[ "$continue_choice" != "yes" ]]; then
+                echo -e "${GREEN}Exiting to download latest version...${NC}"
+                exit 0
+            fi
+        else
+            echo -e "${GREEN}✅ You're running the latest version!${NC}"
+        fi
+    else
+        echo "  Remote Version: Unable to check (network issue)"
+        echo -e "${YELLOW}⚠️  Could not verify latest version${NC}"
+        echo "This may be due to network issues or GitHub being unavailable."
+    fi
+    echo ""
+}
+
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
@@ -1946,6 +1993,11 @@ show_help() {
 echo -e "${BLUE}🏴‍☠️ Arrmematey One-Line Installer${NC}"
 echo "================================="
 echo ""
+echo -e "${BLUE}Version: $SCRIPT_VERSION ($SCRIPT_DATE)${NC}"
+echo ""
+
+# Check for updates
+check_for_updates
 
 # Main menu loop
 while true; do
