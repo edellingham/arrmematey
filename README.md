@@ -43,6 +43,7 @@ cd arrmematey
 - 🎵 **Lidarr** – Music automation (https://localhost:8686)
 - 📥 **SABnzbd** – Usenet downloader (https://localhost:8080)
 - ⬇️ **qBittorrent** – BitTorrent client (https://localhost:8081)
+- 📺 **Emby** – Media server (https://localhost:8096)
 - 🍿 **Jellyseerr** – Media request system (https://localhost:5055)
 - 🧭 **Management UI** – Control center (https://localhost:8080)
 
@@ -68,6 +69,7 @@ cd arrmematey
 | Lidarr | http://localhost:8686 | Music automation |
 | SABnzbd | http://localhost:8080 | Usenet downloader |
 | qBittorrent | http://localhost:8081 | BitTorrent downloader |
+| Emby | http://localhost:8096 | Media server |
 | Jellyseerr | http://localhost:5055 | Request system |
 
 ## 🧭 Quick Commands

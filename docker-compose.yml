@@ -199,6 +199,23 @@ services:
       - sonarr
       - radarr
 
+  # Emby Media Server
+  emby:
+    image: linuxserver/emby:latest
+    container_name: emby
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-UTC}
+    volumes:
+      - emby-config:/config
+      - sonarr-media:/data/media/series:ro
+      - radarr-media:/data/media/movies:ro
+      - lidarr-media:/data/media/music:ro
+    ports:
+      - ${EMBY_PORT:-8096}:8096
+    restart: unless-stopped
+
   # Management UI
   arrstack-ui:
     build:
@@ -246,6 +263,7 @@ volumes:
   sabnzbd-config:
   qbittorrent-config:
   jellyseerr-config:
+  emby-config:
   recyclarr-config:
 
   # Media volumes
