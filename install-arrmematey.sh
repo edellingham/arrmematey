@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.4.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.5.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -235,7 +235,8 @@ install_docker() {
     fi
     stop_spinner
 
-    print_info "Running Docker installation (this may take a few minutes)..."
+    print_info "Running Docker installation (this may take 5-10 minutes)..."
+    print_info "⏳ Please be patient - Docker installation can take several minutes..."
     start_spinner "Installing Docker engine"
     sh /tmp/get-docker.sh
     stop_spinner
@@ -931,7 +932,8 @@ start_services() {
     source ~/.env
 
     # Pull latest images
-    print_info "Pulling Docker images (this will take a few minutes)..."
+    print_info "Pulling Docker images (this will take 5-10 minutes)..."
+    print_info "⏳ Downloading all container images - please be patient..."
     start_spinner "Pulling Docker images"
     if ! docker-compose pull 2>&1 | grep -q "Pulling from"; then
         stop_spinner
