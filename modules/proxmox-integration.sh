@@ -2,7 +2,7 @@
 # Proxmox Integration Module
 # Handles Proxmox Debian 13 VM creation
 #
-# Version: 1.0.0
+# Version: 1.0.1
 ###############################################################################
 
 set -euo pipefail
@@ -275,6 +275,7 @@ proxmox_setup() {
     # Check system
     check_system
     local check_result=$?
+    print_info "check_system returned: $check_result"
 
     # If check returns 1, we're already on Debian 13, skip VM creation
     if [[ $check_result -eq 1 ]]; then
@@ -283,11 +284,14 @@ proxmox_setup() {
         echo ""
         print_info "Proceeding to check VM resources and install Arrmematey..."
         echo ""
+        print_info "DEBUG: About to call check_vm_resources"
 
         # Check VM resources
         check_vm_resources
+        print_info "DEBUG: check_vm_resources returned: $?"
 
         print_success "Proxmox setup phase complete"
+        print_info "DEBUG: proxmox_setup returning 0"
         return 0
     fi
 

@@ -1,17 +1,10 @@
 #!/bin/bash
 ###############################################################################
-# Arrmematey Proxmox Installer - Single Line Installation
-# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/arrmematey-proxmox-one-line.sh)
-#
-# Version: 1.0.0
-# Last Updated: 2025-11-16
+# Arrmematey Proxmox Installer
+# Complete automated installation of Proxmox + Arrmematey media stack
 ###############################################################################
 
 set -euo pipefail
-
-# Version information
-readonly SCRIPT_VERSION="1.0.1"
-readonly SCRIPT_DATE="2025-11-16"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -21,6 +14,10 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# Script directory and module directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODULE_DIR="${SCRIPT_DIR}/modules"
 
 # Installation mode
 INSTALL_MODE=""
@@ -36,27 +33,8 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  Automated Proxmox + Arrmematey Deployment                  ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  Complete media automation stack with VPN protection          ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}$SCRIPT_VERSION${PURPLE}  |  Date: ${GREEN}$SCRIPT_DATE${PURPLE}               ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-}
-
-# Print version information
-print_version() {
-    echo -e "${CYAN}Arrmematey Proxmox Installer${NC}"
-    echo -e "  Version: ${GREEN}$SCRIPT_VERSION${NC}"
-    echo -e "  Date: ${GREEN}$SCRIPT_DATE${NC}"
-    echo -e "  Repository: ${CYAN}https://github.com/edellingham/arrmematey${NC}"
-    echo ""
-}
-
-# Check for version flag
-check_version_flag() {
-    if [[ "${1:-}" == "--version" ]] || [[ "${1:-}" == "-v" ]]; then
-        print_version
-        exit 0
-    fi
 }
 
 print_step() {
@@ -90,50 +68,29 @@ check_root() {
     fi
 }
 
-###############################################################################
-# Module Management
-###############################################################################
-
-# Download module from GitHub
-download_module() {
-    local module_name=$1
-    # Add version-based cache busting
-    local cache_param="v=$SCRIPT_VERSION"
-    local module_url="https://raw.githubusercontent.com/edellingham/arrmematey/main/modules/${module_name}.sh?$cache_param"
-    local module_file="/tmp/${module_name}.sh"
-
-    print_info "Downloading module: $module_name (v$SCRIPT_VERSION)"
-
-    if ! curl -fsSL "$module_url" -o "$module_file"; then
-        error_exit "Failed to download module: $module_name"
+check_proxmox() {
+    if ! command -v pveversion &> /dev/null; then
+        print_warning "Not running on a Proxmox VE host"
+        print_info "This installer expects to be run on Proxmox VE host"
+        read -p "Continue anyway? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
     fi
-
-    chmod +x "$module_file"
-    print_success "Downloaded: $module_name"
-
-    # Source the module
-    source "$module_file"
 }
 
-# Download all modules
-download_all_modules() {
-    print_step "Downloading installer modules..."
+# Load module if it exists
+load_module() {
+    local module_name="$1"
+    local module_file="${MODULE_DIR}/${module_name}.sh"
 
-    mkdir -p /tmp/arrmematey-installer
+    if [[ ! -f "$module_file" ]]; then
+        error_exit "Module not found: $module_file"
+    fi
 
-    local modules=(
-        "proxmox-integration"
-        "dependency-manager"
-        "docker-storage-setup"
-        "arrmematey-installer"
-        "config-prompt"
-    )
-
-    for module in "${modules[@]}"; do
-        download_module "$module"
-    done
-
-    print_success "All modules downloaded successfully"
+    source "$module_file"
+    print_success "Loaded module: $module_name"
 }
 
 ###############################################################################
@@ -184,6 +141,7 @@ phase_proxmox_setup() {
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
+    load_module "proxmox-integration"
     proxmox_setup
 }
 
@@ -194,6 +152,7 @@ phase_dependency_check() {
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
+    load_module "dependency-manager"
     check_and_install_dependencies
 }
 
@@ -204,6 +163,7 @@ phase_docker_storage_setup() {
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
+    load_module "docker-storage-setup"
     setup_docker_storage
 }
 
@@ -214,6 +174,7 @@ phase_arrmematey_install() {
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
+    load_module "arrmematey-installer"
     install_arrmematey
 }
 
@@ -224,6 +185,7 @@ phase_configuration() {
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
+    load_module "config-prompt"
     configure_arrmematey
 }
 
@@ -254,38 +216,16 @@ run_installation() {
 
     echo ""
     print_step "Beginning installation process..."
-    echo ""
 
-    # Download all modules
-    print_info "DEBUG: About to download modules"
-    download_all_modules
-    print_info "DEBUG: Modules downloaded successfully"
-    echo ""
+    # Create module directory if it doesn't exist
+    mkdir -p "$MODULE_DIR"
 
     # Run all phases
-    print_info "DEBUG: Starting Phase 1"
     phase_proxmox_setup
-    print_info "DEBUG: Phase 1 complete, status: $?"
-    echo ""
-
-    print_info "DEBUG: Starting Phase 2"
     phase_dependency_check
-    print_info "DEBUG: Phase 2 complete, status: $?"
-    echo ""
-
-    print_info "DEBUG: Starting Phase 3"
     phase_docker_storage_setup
-    print_info "DEBUG: Phase 3 complete, status: $?"
-    echo ""
-
-    print_info "DEBUG: Starting Phase 4"
     phase_arrmematey_install
-    print_info "DEBUG: Phase 4 complete, status: $?"
-    echo ""
-
-    print_info "DEBUG: Starting Phase 5"
     phase_configuration
-    print_info "DEBUG: Phase 5 complete, status: $?"
 
     # Installation complete
     print_header
@@ -303,11 +243,6 @@ run_installation() {
     echo ""
     print_info "Access your VM and start using Arrmematey!"
     echo ""
-
-    # Cleanup
-    print_step "Cleaning up temporary files..."
-    rm -rf /tmp/arrmematey-installer
-    print_success "Cleanup complete"
 }
 
 ###############################################################################
@@ -315,9 +250,6 @@ run_installation() {
 ###############################################################################
 
 main() {
-    # Check for version flag first
-    check_version_flag "$@"
-
     check_root
     select_install_mode
     run_installation
