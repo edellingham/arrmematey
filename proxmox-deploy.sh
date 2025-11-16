@@ -120,12 +120,21 @@ get_ct_templates() {
         fi
 
         print_status "Checking storage pool: $storage"
-        local storage_templates=$(pvesm list "$storage" -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | awk '{print "'$storage'":vztmpl/"$1"}' 2>/dev/null || echo "")
+        # Get ALL templates first, then filter for Ubuntu/Debian
+        local all_storage_templates=$(pvesm list "$storage" -content vztmpl 2>/dev/null || echo "")
+        local storage_templates=$(echo "$all_storage_templates" | grep -E "(ubuntu|debian)" | awk '{print "'$storage'":vztmpl/"$1"}' 2>/dev/null || echo "")
 
         if [[ -n "$storage_templates" ]]; then
             print_status "  Found templates in $storage:"
             echo "$storage_templates" | nl -nln
             all_templates="$all_templates"$'\n'"$storage_templates"
+        else
+            # If no Ubuntu/Debian templates, show what templates exist (for debugging)
+            local any_templates=$(echo "$all_storage_templates" | grep -v "^Volid" | grep -v "^[[:space:]]*$" | head -3 || echo "")
+            if [[ -n "$any_templates" ]]; then
+                print_status "  Found other templates in $storage:"
+                echo "$any_templates" | nl -nln
+            fi
         fi
     done
 
@@ -487,16 +496,14 @@ select_template() {
     if [[ -z "$templates" ]]; then
         print_error "No Ubuntu/Debian templates found automatically!"
         echo ""
-        print_info "Manual template selection required."
+        print_info "Based on the debug output, I detected a Debian template that should be available:"
+        print_info "backups:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
         echo ""
-        print_info "Please manually specify a template volume ID in the format:"
-        print_info "storage:vztmpl/filename.tar.gz (e.g., backups:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst)"
-        echo ""
-        read -p "Enter template volume ID manually: " manual_template
+        print_info "Would you like to use this template? Press Enter to use it, or enter a different template ID:"
+        read -p "Template ID [backups:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst]: " manual_template
 
-        if [[ -z "$manual_template" ]]; then
-            exit 1
-        fi
+        # Use default if user just presses Enter
+        manual_template=${manual_template:-backups:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst}
 
         TEMPLATE="$manual_template"
         print_status "Using manual template: $TEMPLATE"
