@@ -10,7 +10,7 @@
 set -euo pipefail
 
 # Version information
-readonly SCRIPT_VERSION="1.0.1"
+readonly SCRIPT_VERSION="1.0.3"
 readonly SCRIPT_DATE="2025-11-16"
 
 # Color codes for output
@@ -178,13 +178,16 @@ select_install_mode() {
 ###############################################################################
 
 phase_proxmox_setup() {
+    print_info "DEBUG: phase_proxmox_setup() called"
     print_header
     echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${NC}  PHASE 1: Proxmox Debian 13 VM Setup                         ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
+    print_info "DEBUG: About to call proxmox_setup()"
     proxmox_setup
+    print_info "DEBUG: proxmox_setup() returned with status: $?"
 }
 
 phase_dependency_check() {

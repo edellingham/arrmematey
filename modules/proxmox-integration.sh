@@ -201,6 +201,7 @@ manual_proxmox_setup() {
 
 # Check VM resources (if running in VM)
 check_vm_resources() {
+    print_info "DEBUG: check_vm_resources() called"
     print_step "Checking VM resources..."
 
     # Check RAM
@@ -241,6 +242,8 @@ check_vm_resources() {
         issues=$((issues + 1))
     fi
 
+    print_info "DEBUG: issues=$issues, INSTALL_MODE=$INSTALL_MODE"
+
     if [[ $issues -gt 0 ]]; then
         echo ""
         print_error "VM resources are insufficient for Arrmematey!"
@@ -252,20 +255,26 @@ check_vm_resources() {
         echo "  4. Re-run this installer"
         echo ""
         if [[ "$INSTALL_MODE" == "interactive" ]]; then
+            print_info "DEBUG: In interactive mode, asking user"
             read -p "Continue anyway? (y/N): " -n 1 -r
             echo ""
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
                 print_warning "Installation aborted due to insufficient resources"
+                print_info "DEBUG: About to exit 1"
                 exit 1
             fi
         else
             print_warning "Automated mode: Insufficient resources detected"
             print_warning "Installation may fail or have performance issues"
             print_info "Recommend at least 4GB RAM, 2 CPU cores, 40GB storage"
+            print_info "DEBUG: Automated mode, continuing anyway"
         fi
     else
         print_success "VM resources are adequate"
+        print_info "DEBUG: Resources OK, no issues"
     fi
+
+    print_info "DEBUG: check_vm_resources() about to return"
 }
 
 # Main function
