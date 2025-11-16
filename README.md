@@ -10,10 +10,18 @@ Arrmematey is a complete containerized media automation stack with VPN protectio
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/install.sh)"
 ```
 
-**What it does:**
+**Interactive Menu Options:**
+1. **🚀 Install Arrmematey** - Complete media automation stack
+2. **🧹 Clean Up Docker** - Remove containers and unused images
+3. **💥 Nuclear Clean Up** - Aggressive cleanup for severe issues
+4. **🗄️ Storage Management** - Expand, move, or manage Docker storage
+5. **ℹ️ Help** - Detailed information about all options
+
+**What the installer does:**
 - ✅ Checks Docker and storage configuration
 - ✅ Asks for your Mullvad VPN ID  
 - ✅ Auto-fixes storage issues if detected
+- ✅ Provides comprehensive storage management
 - ✅ Downloads and configures everything
 - ✅ Starts all services automatically
 
