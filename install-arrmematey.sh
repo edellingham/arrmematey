@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.8.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.9.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -520,8 +520,14 @@ configure_arrmematey() {
         error_exit "Mullvad Account ID is required for VPN functionality"
     fi
 
-    # Country
+    # VPN Location
     echo ""
+    print_info "Choose your VPN location"
+    print_info "Browse available servers: https://mullvad.net/en/servers"
+    print_info "Find your desired country and city codes (e.g., us, uk, de, ca, au, nl, fr, jp)"
+    echo ""
+
+    # Country
     echo -n "VPN Country code [us]: "
     read -r MULLVAD_COUNTRY
     [[ -z "$MULLVAD_COUNTRY" ]] && MULLVAD_COUNTRY="us"

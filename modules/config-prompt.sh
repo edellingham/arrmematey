@@ -79,6 +79,8 @@ prompt_mullvad_config() {
     # Country
     echo ""
     print_info "Choose VPN location (default: us)"
+    print_info "Browse available servers: https://mullvad.net/en/servers"
+    print_info "Find your desired country and city codes"
     echo "  Common options: us, uk, de, ca, au, nl, fr, jp"
     echo -n "Country code: "
     read -r MULLVAD_COUNTRY
