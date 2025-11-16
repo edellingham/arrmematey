@@ -202,12 +202,195 @@ perform_docker_cleanup() {
     fi
 }
 
-# Move Docker storage to location with more space
-move_docker_storage() {
+# Expand Docker storage to location with more space
+expand_docker_storage() {
     echo ""
-    echo -e "${BLUE}🔄 Moving Docker Storage to Larger Location${NC}"
-    echo "=============================================="
+    echo -e "${BLUE}🔄 Expanding Docker Storage Capacity${NC}"
+    echo "=================================="
     echo ""
+
+    # Get current Docker storage info
+    local storage_driver=$(docker info 2>/dev/null | grep "Storage Driver:" | awk '{print $3}')
+    local backing_fs=$(docker info 2>/dev/null | grep "Backing Filesystem:" | awk '{print $3}')
+    echo -e "${BLUE}Current setup:${NC}"
+    echo "  Storage Driver: $storage_driver"
+    echo "  Backing Filesystem: $backing_fs"
+    echo ""
+
+    # Show expansion options based on storage driver
+    echo -e "${BLUE}Storage expansion options for $storage_driver:${NC}"
+    echo ""
+
+    case $storage_driver in
+        "overlay2")
+            echo "Overlay2 expansion requires expanding the underlying filesystem."
+            echo "Available options:"
+            echo "1) Expand backing filesystem (LVM/XFS recommended)"
+            echo "2) Add block device to existing filesystem"
+            echo "3) Use different backing filesystem with more space"
+            ;;
+        "devicemapper")
+            echo "Devicemapper (LVM) expansion methods:"
+            echo "1) Extend existing LVM volume group"
+            echo "2) Add physical volume to volume group"
+            echo "3) Extend logical volume for thin pool"
+            ;;
+        "zfs")
+            echo "ZFS expansion methods:"
+            echo "1) Add disk to existing ZFS pool"
+            echo "2) Replace smaller disks with larger ones"
+            ;;
+        "btrfs")
+            echo "Btrfs expansion methods:"
+            echo "1) Add new block device to btrfs filesystem"
+            echo "2) Convert to larger filesystem"
+            ;;
+        *)
+            echo "Storage driver: $storage_driver"
+            echo "Please check Docker documentation for specific expansion method."
+            ;;
+    esac
+
+    echo ""
+    read -p "Select expansion method (1-3): " expansion_choice
+
+    case $expansion_choice in
+        1)
+            if [[ "$storage_driver" == "overlay2" ]]; then
+                expand_overlay2_fs
+            elif [[ "$storage_driver" == "devicemapper" ]]; then
+                expand_devicemapper_lvm
+            elif [[ "$storage_driver" == "zfs" ]]; then
+                expand_zfs_pool
+            elif [[ "$storage_driver" == "btrfs" ]]; then
+                expand_btrfs_filesystem
+            fi
+            ;;
+        2)
+            echo -e "${BLUE}Adding additional storage to filesystem...${NC}"
+            add_storage_device
+            ;;
+        3)
+            echo -e "${YELLOW}Switching to storage relocation...${NC}"
+            offer_move_docker_storage
+            ;;
+        *)
+            echo -e "${RED}Invalid choice${NC}"
+            ;;
+    esac
+}
+
+# Expand overlay2 filesystem
+expand_overlay2_fs() {
+    echo ""
+    echo -e "${BLUE}🔧 Expanding Overlay2 Backing Filesystem${NC}"
+    echo "========================================="
+    echo ""
+
+    local backing_mount=$(findmnt -t xfs -o SOURCE | head -1)
+    if [[ -z "$backing_mount" ]]; then
+        backing_mount=$(df /var/lib/docker | tail -1 | awk '{print $1}')
+        echo -e "${YELLOW}Found backing filesystem: $backing_mount${NC}"
+    else
+        echo -e "${GREEN}Found XFS filesystem: $backing_mount${NC}"
+    fi
+
+    echo ""
+    echo "Overlay2 storage driver uses XFS filesystem for backing."
+    echo "To expand Docker storage, you need to expand the underlying filesystem."
+    echo ""
+    echo "Recommended approaches:"
+    echo "1) Expand existing XFS partition with LVM"
+    echo "2) Add new disk and expand volume group"
+    echo "3) Move Docker to larger filesystem"
+    echo ""
+    read -p "Would you like to move Docker to a larger filesystem instead? (y/N): " move_choice
+
+    if [[ "$move_choice" =~ ^[Yy]$ ]]; then
+        offer_move_docker_storage
+    fi
+}
+
+# Expand devicemapper LVM setup
+expand_devicemapper_lvm() {
+    echo ""
+    echo -e "${BLUE}🔧 Expanding Devicemapper LVM Storage${NC}"
+    echo "=================================="
+    echo ""
+
+    # Check if LVM is available
+    if ! command -v vgs &> /dev/null; then
+        echo -e "${RED}❌ LVM tools not available${NC}"
+        echo "Install LVM: sudo apt install lvm2"
+        return 1
+    fi
+
+    # Show current LVM setup
+    echo -e "${BLUE}Current LVM setup:${NC}"
+    vgs 2>/dev/null | grep docker || echo "No docker volume group found"
+    lvs 2>/dev/null | grep thin || echo "No thin logical volumes found"
+
+    echo ""
+    echo "To expand devicemapper storage:"
+    echo "1) Add new physical volume: sudo pvcreate /dev/sdb"
+    echo "2) Add to volume group: sudo vgextend docker /dev/sdb"
+    echo "3) Extend thin pool: sudo lvextend -l+100%FREE docker/thinpool"
+    echo ""
+    echo "This requires available disk space and may need Docker restart."
+}
+
+# Expand ZFS pool
+expand_zfs_pool() {
+    echo ""
+    echo -e "${BLUE}🔧 Expanding ZFS Pool${NC}"
+    echo "======================"
+    echo ""
+
+    if ! command -v zpool &> /dev/null; then
+        echo -e "${RED}❌ ZFS tools not available${NC}"
+        echo "Install ZFS: sudo apt install zfsutils-linux"
+        return 1
+    fi
+
+    # Show current ZFS pool
+    echo -e "${BLUE}Current ZFS pools:${NC}"
+    zpool list 2>/dev/null || echo "No ZFS pools found"
+
+    echo ""
+    echo "To expand ZFS pool:"
+    echo "1) Check available disks: sudo fdisk -l"
+    echo "2) Add disk to pool: sudo zpool add <pool-name> /dev/sdb"
+    echo "3) Verify expansion: zpool list"
+}
+
+# Expand btrfs filesystem
+expand_btrfs_filesystem() {
+    echo ""
+    echo -e "${BLUE}🔧 Expanding Btrfs Filesystem${NC}"
+    echo "=============================="
+    echo ""
+
+    if ! command -v btrfs &> /dev/null; then
+        echo -e "${RED}❌ Btrfs tools not available${NC}"
+        echo "Install btrfs: sudo apt install btrfs-progs"
+        return 1
+    fi
+
+    # Show current btrfs setup
+    echo -e "${BLUE}Current btrfs filesystem:${NC}"
+    btrfs filesystem show 2>/dev/null || echo "No btrfs filesystem found for Docker"
+
+    echo ""
+    echo "To expand btrfs filesystem:"
+    echo "1) Check available disks: sudo fdisk -l"
+    echo "2) Add device: sudo btrfs device add /dev/sdb /var/lib/docker"
+    echo "3) Balance filesystem: sudo btrfs filesystem balance /var/lib/docker"
+}
+
+# Offer to move Docker storage as fallback
+offer_move_docker_storage() {
+    echo ""
+    echo -e "${YELLOW}Moving Docker storage to location with more space...${NC}"
 
     # Get current Docker root directory
     local current_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
@@ -718,6 +901,83 @@ show_menu() {
     read -p "Select an option (1-4): " choice
 }
 
+# Storage management menu
+show_storage_menu() {
+    echo ""
+    echo -e "${BLUE}🗄️  Docker Storage Management${NC}"
+    echo "==============================="
+    echo ""
+    echo -e "${BLUE}Current Docker Status:${NC}"
+
+    # Show current Docker storage info
+    if command -v docker &> /dev/null && docker ps &> /dev/null; then
+        local docker_info=$(docker info 2>/dev/null)
+        local storage_driver=$(echo "$docker_info" | grep "Storage Driver:" | awk '{print $3}')
+        local docker_root_dir=$(echo "$docker_info" | grep "Docker Root Dir:" | awk '{print $4}')
+
+        echo "  Storage Driver: $storage_driver"
+        echo "  Root Directory: $docker_root_dir"
+
+        # Show storage space
+        if [[ -n "$docker_root_dir" && -d "$docker_root_dir" ]]; then
+            local root_available=$(df "$docker_root_dir" | tail -1 | awk '{print $4}')
+            local root_available_gb=$((root_available / 1024 / 1024))
+            echo "  Available Space: ${root_available_gb}GB"
+        fi
+        echo ""
+    else
+        echo "  ❌ Docker not running or not installed"
+        echo ""
+        read -p "Press Enter to return to main menu..."
+        return
+    fi
+
+    echo -e "${CYAN}Storage Management Options:${NC}"
+    echo ""
+    echo "1) 📊 Check Storage Status"
+    echo "2) 🔧 Expand Docker Storage"
+    echo "3) 📦 Move Docker Storage"
+    echo "4) 🧹 Clean Docker Storage"
+    echo "5) 🔄 Return to Main Menu"
+    echo ""
+    read -p "Select option (1-5): " storage_choice
+
+    case $storage_choice in
+        1)
+            check_docker_storage
+            echo ""
+            read -p "Press Enter to continue..."
+            show_storage_menu
+            ;;
+        2)
+            expand_docker_storage
+            echo ""
+            read -p "Press Enter to continue..."
+            show_storage_menu
+            ;;
+        3)
+            offer_move_docker_storage
+            echo ""
+            read -p "Press Enter to continue..."
+            show_storage_menu
+            ;;
+        4)
+            perform_docker_cleanup
+            echo ""
+            read -p "Press Enter to continue..."
+            show_storage_menu
+            ;;
+        5)
+            return
+            ;;
+        *)
+            echo -e "${RED}Invalid option${NC}"
+            sleep 2
+            show_storage_menu
+            ;;
+    esac
+}
+
 # Help function
 show_help() {
     echo ""
@@ -744,13 +1004,23 @@ show_help() {
     echo "  • Kills hanging processes"
     echo "  • Use when: Severe Docker issues or containerd errors"
     echo ""
+    echo -e "${BLUE}🗄️  Option 4 - Storage Management${NC}"
+    echo "  • Comprehensive Docker storage management"
+    echo "  • Check current storage status and usage"
+    echo "  • Expand storage (overlay2, devicemapper, ZFS, btrfs)"
+    echo "  • Move Docker to locations with more space"
+    echo "  • Clean Docker storage for more space"
+    echo "  • Use when: Need to manage or expand Docker storage"
+    echo ""
     echo -e "${GREEN}💡 Storage Features:${NC}"
     echo "  • Automatic Docker storage space detection"
     echo "  • Detection of overlay2 filesystem issues"
     echo "  • Interactive options to clean or move Docker storage"
+    echo "  • Driver-specific expansion methods (overlay2, devicemapper, ZFS, btrfs)"
     echo "  • Moves Docker to locations with more space"
+    echo "  • Safe storage relocation with backup/restore"
     echo ""
-    echo -e "${GREEN}ℹ️  Option 4 - Help (this page)${NC}"
+    echo -e "${GREEN}ℹ️  Option 5 - Help (this page)${NC}"
     echo "  • Shows detailed information"
     echo ""
     echo "Press Enter to return to menu..."
@@ -790,10 +1060,13 @@ while true; do
             nuclear_cleanup
             ;;
         4)
+            show_storage_menu
+            ;;
+        5)
             show_help
             ;;
         *)
-            echo -e "${RED}Invalid option. Please select 1-4.${NC}"
+            echo -e "${RED}Invalid option. Please select 1-5.${NC}"
             sleep 2
             ;;
     esac
