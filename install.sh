@@ -95,6 +95,13 @@ check_docker_storage() {
         if [[ $root_available_gb -lt 10 ]]; then
             echo -e "${YELLOW}⚠️ Docker storage is running low (${root_available_gb}GB free)${NC}"
             offer_storage_fix
+        elif [[ $root_available_gb -lt 20 ]]; then
+            echo -e "${YELLOW}⚠️ Docker storage is getting tight (${root_available_gb}GB free)${NC}"
+            echo -e "${BLUE}Consider moving Docker storage to prevent future issues${NC}"
+            read -p "Move Docker storage now? (y/N): " move_choice
+            if [[ "$move_choice" =~ ^[Yy]$ ]]; then
+                move_docker_storage
+            fi
         else
             echo -e "${GREEN}✅ Docker storage has sufficient space${NC}"
         fi
@@ -140,8 +147,8 @@ offer_storage_fix() {
     echo -e "${YELLOW}Docker storage space is low. This can cause installation failures.${NC}"
     echo "Would you like to:"
     echo ""
-    echo "1) Clean Docker storage (recommended)"
-    echo "2) Switch to different storage driver (advanced)"
+    echo "1) Clean Docker storage (recommended for cluttered storage)"
+    echo "2) Move Docker storage to location with more space"
     echo "3) Continue anyway (risky)"
     echo ""
     read -p "Select option (1-3): " fix_choice
@@ -152,8 +159,8 @@ offer_storage_fix() {
             perform_docker_cleanup
             ;;
         2)
-            echo -e "${BLUE}🔧 Storage driver change not implemented yet${NC}"
-            echo -e "${YELLOW}Please clean Docker storage manually or use option 3${NC}"
+            echo -e "${BLUE}🔧 Moving Docker storage to larger location...${NC}"
+            move_docker_storage
             ;;
         3)
             echo -e "${YELLOW}Continuing despite low storage space...${NC}"
@@ -192,6 +199,126 @@ perform_docker_cleanup() {
     else
         echo -e "${RED}❌ Docker restart failed${NC}"
         exit 1
+    fi
+}
+
+# Move Docker storage to location with more space
+move_docker_storage() {
+    echo ""
+    echo -e "${BLUE}🔄 Moving Docker Storage to Larger Location${NC}"
+    echo "=============================================="
+    echo ""
+
+    # Get current Docker root directory
+    local current_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
+    echo -e "${BLUE}Current Docker root: ${current_root}${NC}"
+
+    # Show available locations with more space
+    echo ""
+    echo -e "${BLUE}Available locations with more space:${NC}"
+
+    local available_locations=()
+    local location_counter=1
+
+    # Check home directory
+    local home_available=$(df $HOME | tail -1 | awk '{print $4}')
+    local home_available_gb=$((home_available / 1024 / 1024))
+    if [[ $home_available_gb -gt 10 ]]; then
+        echo "  $location_counter) $HOME (${home_available_gb}GB free)"
+        available_locations+=("$HOME")
+        ((location_counter++))
+    fi
+
+    # Check common mount points
+    for mount_point in /opt /usr/local /var/lib; do
+        if [[ -d "$mount_point" && "$mount_point" != "$current_root" ]]; then
+            local mount_available=$(df $mount_point | tail -1 | awk '{print $4}')
+            local mount_available_gb=$((mount_available / 1024 / 1024))
+            if [[ $mount_available_gb -gt 10 ]]; then
+                echo "  $location_counter) $mount_point (${mount_available_gb}GB free)"
+                available_locations+=("$mount_point")
+                ((location_counter++))
+            fi
+        fi
+    done
+
+    # Check if we found any suitable locations
+    if [[ ${#available_locations[@]} -eq 0 ]]; then
+        echo -e "${RED}❌ No suitable locations found with sufficient space${NC}"
+        echo -e "${YELLOW}Please ensure you have at least 10GB free space in:${NC}"
+        echo "  - $HOME"
+        echo "  - /opt"
+        echo "  - /usr/local"
+        echo "  - /var/lib"
+        return 1
+    fi
+
+    echo ""
+    read -p "Select location (1-${#available_locations[@]}): " location_choice
+
+    # Validate choice
+    if ! [[ "$location_choice" =~ ^[0-9]+$ ]] || [[ $location_choice -lt 1 ]] || [[ $location_choice -gt ${#available_locations[@]} ]]; then
+        echo -e "${RED}Invalid choice${NC}"
+        return 1
+    fi
+
+    local selected_location="${available_locations[$((location_choice - 1))]}"
+    local new_docker_root="$selected_location/docker-data"
+    local backup_name="docker-backup-$(date +%Y%m%d-%H%M%S)"
+
+    echo ""
+    echo -e "${YELLOW}Moving Docker from ${current_root} to ${new_docker_root}${NC}"
+    echo -e "${YELLOW}Creating backup at: ${current_root}.${backup_name}${NC}"
+    echo ""
+
+    read -p "Continue? This will restart Docker. (y/N): " confirm_move
+    if [[ ! "$confirm_move" =~ ^[Yy]$ ]]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+
+    echo ""
+    echo "🛑 Stopping Docker daemon..."
+    sudo systemctl stop docker
+
+    echo "🗃️ Creating backup..."
+    sudo mv "$current_root" "$current_root.$backup_name"
+
+    echo "📁 Creating new Docker directory..."
+    sudo mkdir -p "$new_docker_root"
+
+    echo "🔗 Creating symlink..."
+    sudo ln -sf "$new_docker_root" "$current_root"
+
+    echo "⚙️ Updating Docker daemon configuration..."
+    sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "data-root": "$new_docker_root"
+}
+EOF
+
+    echo "🚀 Starting Docker daemon..."
+    sudo systemctl start docker
+    sleep 5
+
+    echo "🔍 Verifying Docker is working..."
+    if docker ps &>/dev/null; then
+        echo -e "${GREEN}✅ Docker storage moved successfully!${NC}"
+        local new_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
+        echo -e "${GREEN}✅ New Docker root: ${new_root}${NC}"
+        echo -e "${BLUE}Backup location: ${current_root}.${backup_name}${NC}"
+        echo ""
+        echo -e "${GREEN}You can safely remove the backup once everything is working:${NC}"
+        echo "sudo rm -rf ${current_root}.${backup_name}"
+    else
+        echo -e "${RED}❌ Docker failed to start after move${NC}"
+        echo "🛠️ Restoring from backup..."
+        sudo rm -rf "$current_root"
+        sudo mv "$current_root.$backup_name" "$current_root"
+        sudo rm -f /etc/docker/daemon.json
+        sudo systemctl start docker
+        echo "🔄 Docker restored to original location"
+        return 1
     fi
 }
 
@@ -602,6 +729,7 @@ show_help() {
     echo "  • Includes Prowlarr, Sonarr, Radarr, Lidarr, SABnzbd, qBittorrent, Jellyseerr"
     echo "  • Sets up Mullvad VPN protection"
     echo "  • Creates management UI"
+    echo "  • Automatically detects and fixes Docker storage issues"
     echo "  • Requires: Docker, curl, Mullvad account"
     echo ""
     echo -e "${YELLOW}🧹 Option 2 - Clean Up Docker${NC}"
@@ -615,6 +743,12 @@ show_help() {
     echo "  • Removes ALL Docker data and configuration"
     echo "  • Kills hanging processes"
     echo "  • Use when: Severe Docker issues or containerd errors"
+    echo ""
+    echo -e "${GREEN}💡 Storage Features:${NC}"
+    echo "  • Automatic Docker storage space detection"
+    echo "  • Detection of overlay2 filesystem issues"
+    echo "  • Interactive options to clean or move Docker storage"
+    echo "  • Moves Docker to locations with more space"
     echo ""
     echo -e "${GREEN}ℹ️  Option 4 - Help (this page)${NC}"
     echo "  • Shows detailed information"

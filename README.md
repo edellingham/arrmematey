@@ -44,6 +44,7 @@ cd arrmematey
 ## 🔧 Smart Installation Features
 - **Docker Storage Check**: Automatically detects and fixes storage issues
 - **Overlay2 Monitoring**: Prevents image extraction failures
+- **Storage Movement**: Moves Docker to locations with more space
 - **Cleanup Options**: Built-in Docker cleanup for failed installations
 - **Interactive Menu**: Choose installation or cleanup options
 
