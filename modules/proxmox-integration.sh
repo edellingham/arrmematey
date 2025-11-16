@@ -58,12 +58,14 @@ check_debian_version() {
 # Check if already on Debian 13 or have Proxmox setup
 check_system() {
     print_step "Checking current system..."
+    print_info "DEBUG: check_system() starting"
 
     # First, check if we're already on Debian 13 (running in a VM or on bare metal)
     if check_debian_version; then
         print_success "Detected Debian 13 (Trixie)"
         print_info "Already running on Debian 13 - skipping VM creation"
         print_info "Proceeding directly to Arrmematey installation"
+        print_info "DEBUG: check_system() returning 1 (Debian 13 detected)"
         return 1  # Signal that we should skip VM creation
     fi
 
@@ -76,11 +78,14 @@ check_system() {
         current_os=$(grep "^VERSION_CODENAME=" /etc/os-release | cut -d= -f2)
         print_info "Current OS: $current_os"
         print_info "Will create Debian 13 VM for Arrmematey"
+        print_info "DEBUG: check_system() returning 0 (Proxmox, need VM)"
         return 0  # Need to create VM
     else
         print_info "Not on Proxmox VE host"
         print_info "Script expects to run on Proxmox for optimal setup"
         print_info "Alternatively, if you're already on Debian 13 VM, this script will work"
+        print_info "DEBUG: check_system() returning 0 (not Proxmox, not Debian 13)"
+        return 0
     fi
 }
 
@@ -280,11 +285,12 @@ check_vm_resources() {
 # Main function
 proxmox_setup() {
     print_step "Checking system for Proxmox integration..."
+    print_info "DEBUG: proxmox_setup() called"
 
     # Check system
     check_system
     local check_result=$?
-    print_info "check_system returned: $check_result"
+    print_info "DEBUG: check_system returned: $check_result"
 
     # If check returns 1, we're already on Debian 13, skip VM creation
     if [[ $check_result -eq 1 ]]; then
@@ -303,6 +309,8 @@ proxmox_setup() {
         print_info "DEBUG: proxmox_setup returning 0"
         return 0
     fi
+
+    print_info "DEBUG: check_result is not 1, continuing with VM creation flow"
 
     # Show resource requirements when creating VM
     show_recommended_resources
