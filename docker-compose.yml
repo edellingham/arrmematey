@@ -11,9 +11,9 @@ services:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
       - WIREGUARD_PRIVATE_KEY=${MULLVAD_ACCOUNT_ID}
-      - SERVER_Countries=${MULLVAD_COUNTRY}
-      - SERVER_Cities=${MULLVAD_CITY}
-      - TZ=${TZ}
+      - SERVER_Countries=${MULLVAD_COUNTRY:-us}
+      - SERVER_Cities=${MULLVAD_CITY:-ny}
+      - TZ=${TZ:-UTC}
       - FIREWALL=on
       - FIREWALL_VPN_INPUT_PORTS=${SONARR_PORT:-8989},${RADARR_PORT:-7878},${LIDARR_PORT:-8686},${SABNZBD_PORT:-8080},${QBITTORRENT_PORT:-8081}
       - DOT=off
@@ -22,7 +22,7 @@ services:
       - KILLSWITCH=true
       - SHADOWSOCKS=off
     volumes:
-      - ${CONFIG_PATH}/gluetun:/config
+      - gluetun-config:/config
     ports:
       - ${SONARR_PORT:-8989}:8989
       - ${RADARR_PORT:-7878}:7878
@@ -36,9 +36,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    profiles:
-      - full
-      - vpn
 
   # Prowlarr - Indexer Manager
   prowlarr:
@@ -47,155 +44,160 @@ services:
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - TZ=${TZ}
+      - TZ=${TZ:-UTC}
     volumes:
-      - ${CONFIG_PATH}/prowlarr:/config
+      - prowlarr-config:/config
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
-      - prowlarr
+      gluetun:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9696"]
       interval: 30s
       timeout: 10s
       retries: 3
-    profiles:
-      - full
-      - indexers
 
-  # Sonarr
+  # Sonarr - TV Series Management
   sonarr:
     image: linuxserver/sonarr:latest
     container_name: sonarr
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - TZ=${TZ}
+      - TZ=${TZ:-UTC}
     volumes:
-      - ${CONFIG_PATH}/sonarr:/config
-      - ${MEDIA_PATH}/tv:/tv
-      - ${DOWNLOADS_PATH}/complete:/downloads
+      - sonarr-config:/config
+      - sonarr-media:/tv
+      - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
-      - prowlarr
+      gluetun:
+        condition: service_healthy
+      prowlarr:
+        condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - full
-      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Radarr
+  # Radarr - Movie Management
   radarr:
     image: linuxserver/radarr:latest
     container_name: radarr
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - TZ=${TZ}
+      - TZ=${TZ:-UTC}
     volumes:
-      - ${CONFIG_PATH}/radarr:/config
-      - ${MEDIA_PATH}/movies:/movies
-      - ${DOWNLOADS_PATH}/complete:/downloads
+      - radarr-config:/config
+      - radarr-media:/movies
+      - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
-      - prowlarr
+      gluetun:
+        condition: service_healthy
+      prowlarr:
+        condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - full
-      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7878"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Lidarr
+  # Lidarr - Music Management
   lidarr:
     image: linuxserver/lidarr:latest
     container_name: lidarr
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - TZ=${TZ}
+      - TZ=${TZ:-UTC}
     volumes:
-      - ${CONFIG_PATH}/lidarr:/config
-      - ${MEDIA_PATH}/music:/music
-      - ${DOWNLOADS_PATH}/complete:/downloads
+      - lidarr-config:/config
+      - lidarr-media:/music
+      - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
-      - prowlarr
+      gluetun:
+        condition: service_healthy
+      prowlarr:
+        condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - full
-      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8686"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # SABnzbd
+  # SABnzbd - Usenet Downloader
   sabnzbd:
     image: linuxserver/sabnzbd:latest
     container_name: sabnzbd
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - TZ=${TZ}
+      - TZ=${TZ:-UTC}
+      - SABNZBD_USERNAME=arrmematey
+      - SABNZBD_PASSWORD=${SABNZBD_PASSWORD:-changeme}
     volumes:
-      - ${CONFIG_PATH}/sabnzbd:/config
-      - ${DOWNLOADS_PATH}/incomplete:/incomplete-downloads
-      - ${DOWNLOADS_PATH}/complete:/downloads
+      - sabnzbd-config:/config
+      - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
-      - prowlarr
+      gluetun:
+        condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - full
-      - downloaders
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # qBittorrent
+  # qBittorrent - BitTorrent Client
   qbittorrent:
     image: linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - TZ=${TZ}
+      - TZ=${TZ:-UTC}
       - WEBUI_PORT=8081
     volumes:
-      - ${CONFIG_PATH}/qbittorrent:/config
-      - ${DOWNLOADS_PATH}/complete:/downloads
+      - qbittorrent-config:/config
+      - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
-      - prowlarr
+      gluetun:
+        condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - full
-      - downloaders
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Jellyseerr
+  # Jellyseerr - Media Request System
   jellyseerr:
     image: fallenbagel/jellyseerr:latest
     container_name: jellyseerr
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - TZ=${TZ}
+      - TZ=${TZ:-UTC}
       - PORT=5055
+      - JELLYSEERR_PASSWORD=${JELLYSEERR_PASSWORD:-changeme}
     volumes:
-      - ${CONFIG_PATH}/jellyseerr:/config
+      - jellyseerr-config:/app/config
     ports:
       - ${JELLYSEERR_PORT:-5055}:5055
     restart: unless-stopped
-    profiles:
-      - full
-      - media
-
-  # Cloudflare Tunnel
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
-    restart: unless-stopped
-    profiles:
-      - full
-      - tunnel
+    depends_on:
+      - sonarr
+      - radarr
 
   # Management UI
   arrstack-ui:
@@ -212,16 +214,13 @@ services:
     ports:
       - ${MANAGEMENT_UI_PORT:-8080}:3000
     restart: unless-stopped
-    profiles:
-      - full
-      - ui
 
-  # Recyclarr for quality profiles
+  # Recyclarr - Quality Profiles Automation
   recyclarr:
     image: ghcr.io/recyclarr/recyclarr:latest
     container_name: recyclarr
     volumes:
-      - ${CONFIG_PATH}/recyclarr:/config
+      - recyclarr-config:/config
       - ./.env:/config/.env:ro
     environment:
       - RECYCLARR_BASE_URL_SONARR=http://sonarr:8989
@@ -236,6 +235,23 @@ services:
       - prowlarr
     restart: "no"
     command: sync
-    profiles:
-      - full
-      - automation
+
+volumes:
+  # Configuration volumes
+  gluetun-config:
+  prowlarr-config:
+  sonarr-config:
+  radarr-config:
+  lidarr-config:
+  sabnzbd-config:
+  qbittorrent-config:
+  jellyseerr-config:
+  recyclarr-config:
+
+  # Media volumes
+  sonarr-media:
+  radarr-media:
+  lidarr-media:
+
+  # Shared downloads volume
+  downloads:

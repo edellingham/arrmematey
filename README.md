@@ -1,110 +1,90 @@
 # 🏴‍☠️ Arrmematey — Your Pirate Crew for Media Treasure
 
-Arrmematey sails in with a crew that keeps every media service steady and every download route protected. It bundles the monitoring UI, download managers, VPN-fortified tunnels, and orchestration scripts you need to keep your pirate fleet at the ready.
+Arrmematey is a complete containerized media automation stack with VPN protection. Just one command gets you a full media management system with Prowlarr, Sonarr, Radarr, Lidarr, download clients, and a management UI.
 
-## ⚓ Quick Start
+## ⚓ Simple Installation
 
-Run the express setup to get Arrmematey going with smart defaults (VPN, Docker, services, and UI all configured automatically):
+Run the quick installer and follow the prompts:
 ```bash
+git clone https://github.com/edellingham/arrmematey.git
+cd arrmematey
 ./quick-install.sh
 ```
 
-Once the script is done, the stack is up and the management UI is available at `http://localhost:8080`.
+**That's it!** The script will:
+- ✅ Install Docker if needed
+- ✅ Ask for your Mullvad VPN ID
+- ✅ Configure all services
+- ✅ Start everything automatically
 
-## 🚀 Proxmox LXC One-Liner
+**Requirements:** Docker, curl, and a Mullvad VPN account
 
-Deploy directly from your Proxmox host with a single command. The `deploy.sh` wrapper fetches the full `proxmox-deploy.sh`, creates the container, installs Docker, runs `quick-install.sh`, and leaves the UI running:
+## ⚔️ Complete Media Automation Stack
+- 🔍 **Prowlarr** – Indexer management (https://localhost:9696)
+- 🎬 **Sonarr** – TV series automation (https://localhost:8989)
+- 🎥 **Radarr** – Movie automation (https://localhost:7878)
+- 🎵 **Lidarr** – Music automation (https://localhost:8686)
+- 📥 **SABnzbd** – Usenet downloader (https://localhost:8080)
+- ⬇️ **qBittorrent** – BitTorrent client (https://localhost:8081)
+- 🍿 **Jellyseerr** – Media request system (https://localhost:5055)
+- 🧭 **Management UI** – Control center (https://localhost:8080)
 
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/deploy.sh)"
-```
+## 🛡️ Security & Privacy
+- **Mullvad VPN** protects all downloads with kill-switch
+- **Network isolation** keeps services secure
+- **Automatic configuration** requires no manual setup
 
-Follow the prompts for storage, Mullvad VPN ID, and media server choices—everything else is automated.
-
-The storage prompt now lists every detected media/download path (including ZFS mountpoints) and automatically creates the folder you select before the container starts, so you do not need to prepare directories manually.
-
-## ⚔️ Core Services on Deck
-- 🔍 **Prowlarr** – Indexer commander (https://localhost:9696)
-- 🎬 **Sonarr** – TV series scout (https://localhost:8989)
-- 🎥 **Radarr** – Movie captain (https://localhost:7878)
-- 🎵 **Lidarr** – Music quartermaster (https://localhost:8686)
-- 📥 **SABnzbd** – Usenet pulpit (https://localhost:8080)
-- ⬇️ **qBittorrent** – Torrent launchpad (https://localhost:8081)
-- 🍿 **Jellyseerr** – Request desk (https://localhost:5055)
-- 📺 **Emby / Jellyfin / Plex** – Media theater (depending on your choice)
-- 🧭 **Arrmematey UI** – Command center (https://localhost:3000 internal / 8080 exposed via compose)
-
-## 🛡️ Security & Privacy Watch
-- Mullvad VPN is baked in for all download services.
-- Kill-switch and firewall rules enforce that no traffic leaks if VPN disconnects.
-- DNS leak protection and hardened iptables keep the crew hidden.
-- `vpn-security.sh`, `kill-switch-test.sh`, and `health.sh` give you command-line peace of mind.
-
-## 🧭 Configuration Flow
-`quick-install.sh` walks you through the following pirate choices:
-1. Mullvad Account ID (required for VPN protection).
-2. Media server selection (Jellyfin, Emby, Plex, or none).
-3. Quality profile (Standard / Quality / Archive).
-4. Optional Cloudflare tunnel setup for remote access.
-
-Once configured, the script generates an `.env`, builds the UI, and launches `docker-compose` to orchestrate everything.
-
-## 🗂️ Repository Layout
-```
-/home/$USER/
-├── Config/            # Service configs (prowlarr, sonarr, etc.)
-├── Media/             # Organized TV, movie, and music libraries
-├── Downloads/         # In-progress and completed downloads
-│   ├── complete/
-│   └── incomplete/
-├── scripts/           # Helper scripts and automation gear
-└── arrmematey/        # This repo housing the UI, compose files, and deployment helpers
-```
-
-## 🧭 Service Access Table
+## 🧭 Service Access
 | Service | URL | Role |
 |---------|-----|------|
-| Management UI | http://localhost:8080 | Control center for everything (also proxies to http://localhost:3000 internally) |
-| Prowlarr | http://localhost:9696 | Indexer command bridge |
-| Sonarr | http://localhost:8989 | TV show automation |
+| Management UI | http://localhost:8080 | Main control center |
+| Prowlarr | http://localhost:9696 | Indexer management |
+| Sonarr | http://localhost:8989 | TV automation |
 | Radarr | http://localhost:7878 | Movie automation |
 | Lidarr | http://localhost:8686 | Music automation |
 | SABnzbd | http://localhost:8080 | Usenet downloader |
-| qBittorrent | http://localhost:8081 | Torrent downloader |
-| Jellyseerr | http://localhost:5055 | Media request desk |
-| Emby/Jellyfin/Plex | http://localhost:8096 | Media streaming theater |
+| qBittorrent | http://localhost:8081 | BitTorrent downloader |
+| Jellyseerr | http://localhost:5055 | Request system |
 
-## 🏴‍☠️ Script Arsenal
-- `quick-install.sh` – Full-stack pirate install with VPN and services.
-- `setup.sh` – Alternative step-by-step setup flow.
-- `configure.sh` – Re-run service-level configuration.
-- `manage.sh` – Start/stop/restart/status helpers for every container.
-- `health.sh` – Continuous crew health reporting.
-- `profiles.sh` – Quality profile management and Recyclarr wiring.
-- `vpn-security.sh` – Security audit for VPN policies.
-- `kill-switch-test.sh` – Simulate VPN failure to verify the kill switch.
-
-## 🧭 Operational Best Practices
-- Keep the Mullvad ID and port mapping in `.env` so the services restart the same way.
-- Update `docker-compose.yml` if you add new services; the UI automatically discovers those port links.
-- Use `manage.sh restart` if you tweak environment variables or the UI code—no need to shut down every container manually.
-
-## 🧱 Troubleshooting Commands
+## 🧭 Quick Commands
 ```bash
-./health.sh check           # Full health report
-./health.sh monitor         # Continuous watch
-./health.sh report          # Detailed report (logs + metrics)
-./vpn-security.sh check     # Ensure VPN rules are intact
-./kill-switch-test.sh       # Confirm kill switch closes all traffic
-./manage.sh status          # Current container status
-./manage.sh logs sonarr     # View Sonarr logs (swap service name as needed)
-./manage.sh backup          # Snapshot configs before upgrades
-./manage.sh ui              # Open the management UI in your browser
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f [service]
+
+# Restart all services
+docker-compose restart
+
+# Stop everything
+docker-compose down
+
+# Start again
+docker-compose up -d
 ```
 
-## 🧭 Final Notes
-- The deployment scripts already handle every step: from spinning up the LXC (via `deploy.sh`/`proxmox-deploy.sh`) to running `quick-install.sh` inside the container.
-- Keep an eye on `/tmp/arrmematey-ui.log` (when running locally) for Docker permission warnings—giving the service principal access to `/var/run/docker.sock` or adding it to the `docker` group solves those errors.
-- If you want remote dashboards, plug in the Cloudflare tunnel options during the quick install or rely on Proxmox VPN routing.
+## 🧭 Setup Tips
+After installation:
+1. **Configure indexers** in Prowlarr (add your NZB/Torrent providers)
+2. **Set up download clients** in SABnzbd/qBittorrent
+3. **Add your media libraries** to Sonarr, Radarr, and Lidarr
+4. **Configure Jellyseerr** to connect to your services
 
-Happy treasure hunting! 🏴‍☠️🍿
+## 🧱 Troubleshooting
+```bash
+# View service logs
+docker-compose logs -f [service-name]
+
+# Check VPN connection
+docker exec gluetun curl -s ipinfo.io/ip
+
+# Restart single service
+docker-compose restart sonarr
+
+# Update all containers
+docker-compose pull && docker-compose up -d
+```
+
+**Happy treasure hunting!** 🏴‍☠️🍿
+```

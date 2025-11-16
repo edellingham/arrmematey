@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrmematey - Your Pirate Crew</title>
+    <link rel="icon" type="image/png" href="/images/arrmematey-icon.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            color: #333;
+            position: relative;
+            overflow-x: hidden;
+            transition: background-image 1s ease-in-out;
+        }
+
+        /* Background image styles */
+        .background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        .background-container.active {
+            opacity: 1;
+        }
+
+        .background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: -1;
+        }
+
+
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: #1e293b;
+            margin-bottom: 40px;
+            animation: fadeIn 1s ease-in;
+        }
+        
+        .logo {
+            width: 300px;
+            height: 103px;
+            margin-bottom: 20px;
+        }
+        
+        .title {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #1e293b;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            font-style: italic;
+            color: #64748b;
+        }
+        
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .service-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        .service-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .service-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .service-icon {
+            font-size: 2rem;
+        }
+        
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-running {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status-stopped {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .status-restarting {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .service-info {
+            margin-bottom: 15px;
+        }
+        
+        .service-url {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        
+        .service-url a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        
+        .service-url a:hover {
+            text-decoration: underline;
+        }
+        
+        .service-health {
+            color: #6b7280;
+            font-size: 0.85rem;
+        }
+        
+        .service-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-start {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-stop {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-restart {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .btn-open {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-logs {
+            background: #8b5cf6;
+            color: white;
+        }
+        
+        .system-info {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .system-info h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .system-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            border-radius: 10px;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+        
+        .pirate-mascot {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 3rem;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes sway {
+            0%, 100% { transform: translateY(0) rotate(-5deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        
+        .logs-content {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #1e293b;
+            font-size: 1.2rem;
+            padding: 40px;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .logo {
+                width: 200px;
+                height: 69px;
+            }
+            
+            .system-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .service-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="/images/arrmematey-logo.svg" alt="Arrmematey Logo" class="logo">
+            <p class="subtitle">Your trusty pirate crew for media treasure! 🏴‍☠️</p>
+        </div>
+
+        <div class="system-info" id="systemInfo">
+            <div class="loading">Captain be gatherin' ship reports...</div>
+        </div>
+
+        <div class="services-grid" id="servicesGrid">
+            <div class="loading">Crew be checkin' on yer treasures...</div>
+        </div>
+
+        <div class="footer">
+            <p>🏴‍☠️ Arrmematey - Arr... Me Matey! 🍿</p>
+        </div>
+    </div>
+
+    <!-- Background elements -->
+    <div class="background-container active" id="background1"></div>
+    <div class="background-container" id="background2"></div>
+    <div class="background-overlay"></div>
+
+
+
+    <div class="pirate-mascot" id="pirateMascot" title="Your pirate captain is always watching!">🏴‍☠️</div>
+
+    <div class="modal" id="logsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="logsTitle">Service Logs</h3>
+                <button class="close-modal" onclick="closeLogsModal()">&times;</button>
+            </div>
+            <div class="logs-content" id="logsContent">
+                Loading logs...
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        
+        // Service configuration
+        const getServiceConfig = () => {
+            return {
+                prowlarr: { port: 9696, name: 'Prowlarr', icon: '🔍', description: 'Indexer Manager' },
+                sonarr: { port: 8989, name: 'Sonarr', icon: '🎬', description: 'TV Series Butler' },
+                radarr: { port: 7878, name: 'Radarr', icon: '🎥', description: 'Movie Butler' },
+                lidarr: { port: 8686, name: 'Lidarr', icon: '🎵', description: 'Music Butler' },
+                sabnzbd: { port: 8080, name: 'SABnzbd', icon: '📥', description: 'Usenet Butler' },
+                qbittorrent: { port: 8081, name: 'qBittorrent', icon: '⬇️', description: 'Torrent Butler' },
+                jellyseerr: { port: 5055, name: 'Jellyseerr', icon: '🍿', description: 'Request Butler' }
+            };
+        };
+        
+        // Fetch services
+        async function fetchServices() {
+            try {
+                const response = await fetch('/api/services');
+                const services = await response.json();
+                renderServices(services);
+            } catch (error) {
+                console.error('Error fetching services:', error);
+                const grid = document.getElementById('servicesGrid');
+                grid.innerHTML = '<div class="loading">Your butler couldn\'t reach the services!</div>';
+            }
+        }
+        
+        // Fetch system info
+        async function fetchSystemInfo() {
+            try {
+                const response = await fetch('/api/system/info');
+                const info = await response.json();
+                renderSystemInfo(info);
+            } catch (error) {
+                console.error('Error fetching system info:', error);
+                const systemInfo = document.getElementById('systemInfo');
+                systemInfo.innerHTML = '<h2>System Information</h2><div class="loading">Butler couldn\'t gather system info!</div>';
+            }
+        }
+        
+        // Render services
+        function renderServices(services) {
+            const grid = document.getElementById('servicesGrid');
+            const config = getServiceConfig();
+            
+            grid.innerHTML = services.map(service => {
+                const serviceConfig = config[service.id];
+                if (!serviceConfig) return '';
+                
+                return `
+                    <div class="service-card">
+                        <div class="service-header">
+                            <div class="service-name">
+                                <span class="service-icon">${serviceConfig.icon}</span>
+                                <div>
+                                    <span>${service.name}</span>
+                                    <div style="font-size: 0.8rem; color: #6b7280;">${serviceConfig.description}</div>
+                                </div>
+                            </div>
+                            <div class="status-badge status-${service.status}">
+                                ${service.status}
+                            </div>
+                        </div>
+                        <div class="service-info">
+                            <div class="service-url">
+                                <strong>Service Address:</strong> <a href="${service.url}" target="_blank">${service.url}</a>
+                            </div>
+                            <div class="service-health">
+                                <strong>Status:</strong> ${service.health}
+                            </div>
+                        </div>
+                        <div class="service-actions">
+                            <button class="btn btn-start" onclick="controlService('${service.id}', 'start')" 
+                                    ${service.status === 'running' ? 'disabled' : ''}>
+                                Start
+                            </button>
+                            <button class="btn btn-stop" onclick="controlService('${service.id}', 'stop')"
+                                    ${service.status !== 'running' ? 'disabled' : ''}>
+                                Stop
+                            </button>
+                            <button class="btn btn-restart" onclick="controlService('${service.id}', 'restart')">
+                                Restart
+                            </button>
+                            <button class="btn btn-open" onclick="window.open('${service.url}', '_blank')">
+                                Open
+                            </button>
+                            <button class="btn btn-logs" onclick="viewLogs('${service.id}', '${service.name}')">
+                                Logs
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Render system info
+        function renderSystemInfo(info) {
+            const systemInfo = document.getElementById('systemInfo');
+            
+            systemInfo.innerHTML = `
+                <h2>🎭 Butler's System Report</h2>
+                <div class="system-stats">
+                    <div class="stat-card">
+                        <div class="stat-number">${info.docker?.version || 'N/A'}</div>
+                        <div class="stat-label">Docker Version</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${info.docker?.containers || '0'}</div>
+                        <div class="stat-label">Total Containers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${info.docker?.running || '0'}</div>
+                        <div class="stat-label">Running</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${info.services?.length || '0'}</div>
+                        <div class="stat-label">Media Services</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${info.docker?.images || '0'}</div>
+                        <div class="stat-label">Docker Images</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Control service
+        async function controlService(serviceId, action) {
+            try {
+                const response = await fetch(`/api/service/${serviceId}/${action}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    await fetchServices();
+                    // Add a fun message
+                    showPirateMessage(`Your ${action} command for ${serviceId} has been sent!`);
+                }
+            } catch (error) {
+                console.error('Error controlling service:', error);
+                showPirateMessage(`Captain encountered an error with ${serviceId}!`, 'error');
+            }
+        }
+        
+        // View logs
+        async function viewLogs(serviceId, serviceName) {
+            try {
+                const response = await fetch(`/api/service/${serviceId}/logs`);
+                const data = await response.json();
+                
+                document.getElementById('logsTitle').textContent = `📋 ${serviceName} Logs`;
+                document.getElementById('logsContent').textContent = data.logs || 'No logs available';
+                document.getElementById('logsModal').style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                document.getElementById('logsContent').textContent = 'Error loading logs';
+                document.getElementById('logsModal').style.display = 'block';
+            }
+        }
+        
+        // Close logs modal
+        function closeLogsModal() {
+            document.getElementById('logsModal').style.display = 'none';
+        }
+        
+        // Pirate crew message
+       //     function showPirateMessage(message, type = 'info') {
+       //     const mascot = document.getElementById('pirateMascot');
+       //     const originalTitle = mascot.title;
+            
+       //     mascot.title = message;
+            
+       //     setTimeout(() => {
+       //         mascot.title = originalTitle;
+       //     }, 3000);
+            
+            // Add a little sway
+        //    mascot.style.animation = 'none';
+        //    setTimeout(() => {
+        //        mascot.style.animation = 'sway 0.5s ease-in-out';
+        //    }, 10);
+        //}
+        
+        // Socket.io event listeners
+        socket.on('containerUpdate', (containers) => {
+            fetchServices();
+        });
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('logsModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        
+        // Background rotation - simple and reliable
+        function initBackgroundRotation() {
+            const bg1 = document.getElementById('background1');
+            const bg2 = document.getElementById('background2');
+            
+            if (!bg1 || !bg2) {
+                console.error('Background containers not found');
+                return;
+            }
+            
+            const images = [
+                '/images/backgrounds/american-horror-story.jpg',
+                '/images/backgrounds/big-trouble-in-little-china.jpg',
+                '/images/backgrounds/bobs-burgers.jpg',
+                '/images/backgrounds/ghostbusters.jpg',
+                '/images/backgrounds/ghosts.jpg',
+                '/images/backgrounds/teenage-mutant-ninja-turtles.jpg'
+            ];
+            
+            let currentImageIndex = 0;
+            
+            // Set initial background
+            bg1.style.backgroundImage = 'url(' + images[0] + ')';
+            bg1.className = 'background-container active';
+            console.log('Background set to:', images[0]);
+            
+            // Rotation function
+            function rotateImage() {
+                currentImageIndex = (currentImageIndex + 1) % images.length;
+                const nextImage = images[currentImageIndex];
+                
+                const activeBg = document.querySelector('.background-container.active');
+                const inactiveBg = activeBg === bg1 ? bg2 : bg1;
+                
+                console.log('Rotating to:', nextImage);
+                
+                // Set next image and swap
+                inactiveBg.style.backgroundImage = 'url(' + nextImage + ')';
+                activeBg.classList.remove('active');
+                inactiveBg.classList.add('active');
+            }
+            
+            // Start rotation
+            setTimeout(rotateImage, 5000);
+            setInterval(rotateImage, 5000);
+            
+            console.log('Background rotation initialized with', images.length, 'images');
+        }
+
+        // Simple page load - start background immediately, not in unreliable load event
+        setTimeout(() => {
+            // Initial service and system data
+            fetchServices();
+            fetchSystemInfo();
+            
+            // Pirate greeting
+            setTimeout(() => {
+                showPirateMessage('Ahoy! Captain be ready to set sail! 🏴‍☠️');
+            }, 1000);
+            
+            // Refresh services every 30 seconds
+            setInterval(() => {
+                fetchServices();
+                fetchSystemInfo();
+            }, 30000);
+            
+            // Background rotation - simple, immediate, reliable
+            const bg1 = document.getElementById('background1');
+            const bg2 = document.getElementById('background2');
+            
+            if (bg1 && bg2) {
+                const images = [
+                    '/images/backgrounds/american-horror-story.jpg',
+                    '/images/backgrounds/big-trouble-in-little-china.jpg',
+                    '/images/backgrounds/bobs-burgers.jpg',
+                    '/images/backgrounds/ghostbusters.jpg',
+                    '/images/backgrounds/ghosts.jpg',
+                    '/images/backgrounds/teenage-mutant-ninja-turtles.jpg'
+                ];
+                
+                let currentImageIndex = 0;
+                
+                // Set initial background
+                bg1.style.backgroundImage = 'url(' + images[0] + ')';
+                bg1.className = 'background-container active';
+                console.log('Background started with:', images[0]);
+                
+                // Rotation function
+                function rotateImage() {
+                    currentImageIndex = (currentImageIndex + 1) % images.length;
+                    const nextImage = images[currentImageIndex];
+                    
+                    const activeBg = document.querySelector('.background-container.active');
+                    const inactiveBg = activeBg === bg1 ? bg2 : bg1;
+                    
+                    inactiveBg.style.backgroundImage = 'url(' + nextImage + ')';
+                    activeBg.classList.remove('active');
+                    inactiveBg.classList.add('active');
+                    
+                    console.log('Rotated to:', nextImage);
+                }
+                
+                // Start rotation
+                setTimeout(rotateImage, 5000);
+                setInterval(rotateImage, 5000);
+            }
+        }, 100);
+        
+        // Background rotation - SIMPLE, IMMEDIATE, RELIABLE
+        setTimeout(() => {
+            console.log('Starting SIMPLE background rotation...');
+            const bg1 = document.getElementById('background1');
+            const bg2 = document.getElementById('background2');
+            
+            if (bg1 && bg2) {
+                const images = [
+                    '/images/backgrounds/american-horror-story.jpg',
+                    '/images/backgrounds/big-trouble-in-little-china.jpg',
+                    '/images/backgrounds/bobs-burgers.jpg',
+                    '/images/backgrounds/ghostbusters.jpg',
+                    '/images/backgrounds/ghosts.jpg',
+                    '/images/backgrounds/teenage-mutant-ninja-turtles.jpg'
+                ];
+                
+                let currentImageIndex = 0;
+                
+                // Set initial background
+                bg1.style.backgroundImage = 'url(' + images[0] + ')';
+                bg1.className = 'background-container active';
+                console.log('SIMPLE: Initial background set');
+                
+                // Rotation function
+                function rotateImage() {
+                    currentImageIndex = (currentImageIndex + 1) % images.length;
+                    const nextImage = images[currentImageIndex];
+                    
+                    const activeBg = document.querySelector('.background-container.active');
+                    const inactiveBg = activeBg === bg1 ? bg2 : bg1;
+                    
+                    inactiveBg.style.backgroundImage = 'url(' + nextImage + ')';
+                    activeBg.classList.remove('active');
+                    inactiveBg.classList.add('active');
+                    
+                    console.log('SIMPLE: Rotated to', nextImage);
+                }
+                
+                // Start rotation
+                setTimeout(rotateImage, 5000);
+                setInterval(rotateImage, 5000);
+                
+                console.log('SIMPLE: Background rotation WORKING');
+            }
+        }, 200);
+        
+</body>
+</html>
