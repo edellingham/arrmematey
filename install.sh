@@ -250,6 +250,7 @@ expand_docker_storage() {
             backing_fs=$(df -T "$docker_root" | tail -1 | awk '{print $2}')
         else
             backing_fs="unknown"
+        fi
     fi
 
     echo -e "${BLUE}Current setup:${NC}"
@@ -342,6 +343,7 @@ expand_docker_storage() {
             echo -e "${RED}Invalid choice. Please select 1-3.${NC}"
             ;;
     esac
+}
 }
 
 # Expand overlay2 filesystem
