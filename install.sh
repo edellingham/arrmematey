@@ -895,10 +895,13 @@ show_menu() {
     echo -e "${RED}3) 💥 Nuclear Clean Up${NC}"
     echo "   Aggressive cleanup - fixes severe Docker issues"
     echo ""
-    echo -e "${GREEN}4) ℹ️  Help${NC}"
+    echo -e "${BLUE}4) 🗄️  Storage Management${NC}"
+    echo "   Expand, move, or manage Docker storage"
+    echo ""
+    echo -e "${GREEN}5) ℹ️  Help${NC}"
     echo "   Show detailed information about each option"
     echo ""
-    read -p "Select an option (1-4): " choice
+    read -p "Select an option (1-5): " choice
 }
 
 # Storage management menu
@@ -1068,6 +1071,8 @@ while true; do
         *)
             echo -e "${RED}Invalid option. Please select 1-5.${NC}"
             sleep 2
+            ;;
+            show_help
             ;;
     esac
     echo ""
