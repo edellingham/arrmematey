@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.9.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.9.1${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -960,7 +960,7 @@ start_services() {
     echo ""
 
     # Show Docker pull progress - this includes progress bars!
-    if ! docker-compose pull 2>&1; then
+    if ! docker compose pull 2>&1; then
         print_error "Failed to pull Docker images"
         exit 1
     fi
@@ -990,7 +990,7 @@ start_services() {
     # Start services
     print_info "Starting Arrmematey stack..."
     start_spinner "Starting all services"
-    if ! docker-compose --profile full up -d &>/dev/null; then
+    if ! docker compose --profile full up -d &>/dev/null; then
         stop_spinner
         error_exit "Failed to start services"
     fi
@@ -1003,7 +1003,7 @@ start_services() {
 
     # Check status
     print_step "Checking service status..."
-    docker-compose ps
+    docker compose ps
 }
 
 # Function to wait for service to be ready
