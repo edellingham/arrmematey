@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.9.2${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.10.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -1164,14 +1164,18 @@ automate_stack_configuration() {
     print_info "Waiting for all services to start..."
     sleep 30
 
-    # Configure media libraries
-    configure_media_libraries
-
-    # Configure download clients
-    configure_download_clients
-
-    # Show post-installation steps
-    display_automation_status
+    # Run enhanced auto-configuration
+    print_info "Running enhanced auto-configuration..."
+    if [[ -f "/opt/arrmematey/auto-configure-enhanced.sh" ]]; then
+        cd /opt/arrmematey
+        bash /opt/arrmematey/auto-configure-enhanced.sh
+    else
+        # Fallback to basic configuration
+        print_info "Enhanced script not found, running basic configuration..."
+        configure_media_libraries
+        configure_download_clients
+        display_automation_status
+    fi
 }
 
 display_completion() {
@@ -1190,12 +1194,22 @@ display_completion() {
     echo -e "  📺 Sonarr:          ${GREEN}http://localhost:$SONARR_PORT${NC}"
     echo -e "  🎬 Radarr:          ${GREEN}http://localhost:$RADARR_PORT${NC}"
     echo -e "  🎵 Lidarr:          ${GREEN}http://localhost:$LIDARR_PORT${NC}"
+    echo -e "  📥 SABnzbd:         ${GREEN}http://localhost:$SABNZBD_PORT${NC}"
+    echo -e "  ⬇️  qBittorrent:    ${GREEN}http://localhost:$QBITTORRENT_PORT${NC}"
+    echo -e "  📺 Emby:            ${GREEN}http://localhost:$EMBY_PORT${NC}"
+    echo -e "  🍿 Jellyseerr:      ${GREEN}http://localhost:$JELLYSEERR_PORT${NC}"
     echo ""
-    echo -e "${CYAN}Next Steps:${NC}"
-    echo "  1. Access the Management UI to configure your services"
-    echo "  2. Set up indexers in Prowlarr"
-    echo "  3. Configure download clients (SABnzbd/qBittorrent)"
-    echo "  4. Add your media libraries to Sonarr/Radarr/Lidarr"
+    echo -e "${CYAN}✅ Automated Configuration:${NC}"
+    echo "  • Root folders configured in Sonarr/Radarr/Lidarr"
+    echo "  • Download clients connected to all media managers"
+    echo "  • Prowlarr integration configured"
+    echo "  • API keys exchanged between services"
+    echo ""
+    echo -e "${CYAN}Manual Steps Remaining:${NC}"
+    echo "  1. Add indexers in Prowlarr (your NZB/Torrent providers)"
+    echo "  2. Configure SABnzbd news server (your provider settings)"
+    echo "  3. Set up Emby user account"
+    echo "  4. Complete Jellyseerr setup"
     echo ""
 }
 
