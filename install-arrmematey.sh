@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.3.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.4.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -757,6 +757,165 @@ create_directories() {
             fi
         done
     fi
+
+    # Validate symlinks after creation
+    if [[ -n "${USE_EXISTING_MEDIA:-}" ]] || [[ -n "${USE_EXISTING_DOWNLOADS:-}" ]]; then
+        validate_symlinks
+    fi
+}
+
+# Function to validate symlinks are working correctly
+validate_symlinks() {
+    print_step "Validating symlink integrity..."
+
+    local broken_symlinks=0
+    local symlink_count=0
+
+    # Check all symlinks in /data/arrmematey
+    find /data/arrmematey -type l -print0 2>/dev/null | while IFS= read -r -d '' symlink; do
+        symlink_count=$((symlink_count + 1))
+
+        # Check if symlink target exists
+        if [[ ! -e "$symlink" ]]; then
+            print_error "BROKEN SYMLINK: $symlink"
+            print_error "  → Target does not exist: $(readlink "$symlink")"
+            broken_symlinks=$((broken_symlinks + 1))
+        fi
+    done
+
+    # Check filesystem compatibility
+    check_filesystem_compatibility
+
+    # Check permissions
+    check_directory_permissions
+
+    if [[ $broken_symlinks -gt 0 ]]; then
+        echo ""
+        print_error "Found $broken_symlinks broken symlink(s)!"
+        echo ""
+        print_info "This usually means the source directory was moved or deleted."
+        print_info "Please restore the source directories and re-run the installer."
+        echo ""
+        error_exit "Symlink validation failed"
+    else
+        print_success "All symlinks validated successfully"
+        if [[ $symlink_count -gt 0 ]]; then
+            print_info "Checked $symlink_count symlink(s)"
+        fi
+    fi
+}
+
+# Function to check filesystem compatibility
+check_filesystem_compatibility() {
+    print_info "Checking filesystem compatibility..."
+
+    # Check if /data and source directories exist
+    if [[ ! -d "/data/arrmematey" ]] || [[ ! -d "${EXISTING_MEDIA_PATH:-$EXISTING_DOWNLOADS_PATH}" ]]; then
+        return 0
+    fi
+
+    # Get device numbers
+    local data_dev=$(stat -c %d "/data/arrmematey" 2>/dev/null || echo "0")
+    local media_dev=$(stat -c %d "${EXISTING_MEDIA_PATH}" 2>/dev/null || echo "0")
+    local downloads_dev=$(stat -c %d "${EXISTING_DOWNLOADS_PATH}" 2>/dev/null || echo "0")
+
+    local cross_filesystem=0
+
+    if [[ $media_dev -ne 0 ]] && [[ $data_dev -ne 0 ]] && [[ $media_dev -ne $data_dev ]]; then
+        print_warning "Media directory is on different filesystem than /data"
+        cross_filesystem=1
+    fi
+
+    if [[ $downloads_dev -ne 0 ]] && [[ $data_dev -ne 0 ]] && [[ $downloads_dev -ne $data_dev ]]; then
+        print_warning "Downloads directory is on different filesystem than /data"
+        cross_filesystem=1
+    fi
+
+    if [[ $cross_filesystem -eq 1 ]]; then
+        echo ""
+        print_warning "⚠️  Cross-Filesystem Symlinks Detected"
+        print_info "Some directories are on different filesystems."
+        print_info "This is usually OK, but symlinks on different filesystems may have:"
+        print_info "  • Slightly more CPU overhead"
+        print_info "  • Potential reliability issues with network storage (NFS/CIFS)"
+        print_info "  • Different performance characteristics"
+        echo ""
+        read -p "Continue anyway? (Y/n): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ ! -z $REPLY ]]; then
+            error_exit "Aborted by user"
+        fi
+    else
+        print_success "All directories are on compatible filesystems"
+    fi
+}
+
+# Function to check directory permissions
+check_directory_permissions() {
+    print_info "Checking directory permissions..."
+
+    # Get current PUID/PGID
+    local current_uid=$(id -u)
+    local current_gid=$(id -g)
+
+    # Check if we have read access to source directories
+    local permission_issues=0
+
+    if [[ -n "${EXISTING_MEDIA_PATH:-}" ]] && [[ -d "$EXISTING_MEDIA_PATH" ]]; then
+        if [[ ! -r "$EXISTING_MEDIA_PATH" ]]; then
+            print_warning "No read permission for: $EXISTING_MEDIA_PATH"
+            permission_issues=1
+        fi
+    fi
+
+    if [[ -n "${EXISTING_DOWNLOADS_PATH:-}" ]] && [[ -d "$EXISTING_DOWNLOADS_PATH" ]]; then
+        if [[ ! -r "$EXISTING_DOWNLOADS_PATH" ]]; then
+            print_warning "No read permission for: $EXISTING_DOWNLOADS_PATH"
+            permission_issues=1
+        fi
+    fi
+
+    if [[ -n "${PUID:-}" ]] && [[ -n "${PGID:-}" ]]; then
+        if [[ $PUID -ne $current_uid ]] || [[ $PGID -ne $current_gid ]]; then
+            print_warning "PUID/PGID ($PUID:$PGID) differs from current user ($current_uid:$current_gid)"
+            print_info "Ensure Docker containers run with correct PUID/PGID"
+            print_info "Check docker-compose.yml has 'user: ${PUID:-}:${PGID:-}' set"
+        fi
+    fi
+
+    if [[ $permission_issues -eq 1 ]]; then
+        echo ""
+        print_warning "Permission issues detected with source directories"
+        print_info "This may cause problems when Docker containers try to access media"
+        print_info "Consider running: chmod -R 755 $EXISTING_MEDIA_PATH $EXISTING_DOWNLOADS_PATH"
+        echo ""
+        read -p "Continue anyway? (Y/n): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ ! -z $REPLY ]]; then
+            error_exit "Aborted by user"
+        fi
+    else
+        print_success "Directory permissions look OK"
+    fi
+}
+
+# Function to show symlink status
+show_symlink_status() {
+    echo ""
+    echo -e "${CYAN}📋 Symlink Status:${NC}"
+    echo ""
+
+    if [[ -d "/data/arrmematey/Media" ]]; then
+        echo -e "${BLUE}Media Directories:${NC}"
+        ls -lah /data/arrmematey/Media/ 2>/dev/null | grep "^l" | awk '{print "  " $0}' || echo "  No symlinks found"
+        echo ""
+    fi
+
+    if [[ -d "/data/arrmematey/Downloads" ]]; then
+        echo -e "${BLUE}Download Directories:${NC}"
+        ls -lah /data/arrmematey/Downloads/ 2>/dev/null | grep "^l" | awk '{print "  " $0}' || echo "  No symlinks found"
+        echo ""
+    fi
 }
 
 ###############################################################################
@@ -963,6 +1122,11 @@ display_automation_status() {
     echo "   Existing media is linked via symlinks"
     echo "   This keeps Docker volumes clean and organized"
     echo ""
+
+    # Show symlink status if any were created
+    if [[ -n "${USE_EXISTING_MEDIA:-}" ]] || [[ -n "${USE_EXISTING_DOWNLOADS:-}" ]]; then
+        show_symlink_status
+    fi
 }
 
 automate_stack_configuration() {
