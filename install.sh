@@ -11,6 +11,10 @@
 
 set -e
 
+# Script version information
+SCRIPT_VERSION="2.1.0"
+SCRIPT_DATE="2024-11-15"
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
