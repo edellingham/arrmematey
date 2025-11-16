@@ -2,22 +2,28 @@
 
 Arrmematey is a complete containerized media automation stack with VPN protection. Just one command gets you a full media management system with Prowlarr, Sonarr, Radarr, Lidarr, download clients, and a management UI.
 
-## ⚓ Simple Installation
+## ⚓ One-Line Installation
 
-Run the quick installer and follow the prompts:
+**Super simple!** Just run this single command:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/install.sh)"
+```
+
+**What it does:**
+- ✅ Checks Docker (installs if needed)
+- ✅ Asks for your Mullvad VPN ID  
+- ✅ Downloads and configures everything
+- ✅ Starts all services automatically
+
+**Requirements:** Docker, curl, and a Mullvad VPN account
+
+**Alternative (with git):**
 ```bash
 git clone https://github.com/edellingham/arrmematey.git
 cd arrmematey
 ./quick-install.sh
 ```
-
-**That's it!** The script will:
-- ✅ Install Docker if needed
-- ✅ Ask for your Mullvad VPN ID
-- ✅ Configure all services
-- ✅ Start everything automatically
-
-**Requirements:** Docker, curl, and a Mullvad VPN account
 
 ## ⚔️ Complete Media Automation Stack
 - 🔍 **Prowlarr** – Indexer management (https://localhost:9696)
