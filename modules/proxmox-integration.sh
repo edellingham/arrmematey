@@ -66,7 +66,9 @@ check_system() {
         print_info "Already running on Debian 13 - skipping VM creation"
         print_info "Proceeding directly to Arrmematey installation"
         print_info "DEBUG: check_system() returning 1 (Debian 13 detected)"
+        print_info "DEBUG: About to execute return 1"
         return 1  # Signal that we should skip VM creation
+        print_info "ERROR: This line should never be reached!"
     fi
 
     # Check if on Proxmox
