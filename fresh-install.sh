@@ -1,6 +1,6 @@
 #!/bin/bash
 # Arrmematey Fresh Install Script
-# For fresh Debian 13 systems - installs Docker, dependencies, and Arrmematey stack
+# For fresh Debian 13 systems - installs Docker and Arrmematey stack
 
 set -e
 
@@ -8,24 +8,21 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
-CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo -e "${BLUE}🏴‍☠️ Arrmematey Fresh Install${NC}"
 echo "================================="
 echo ""
+
 echo -e "${BLUE}This script will:${NC}"
 echo "  • Install Docker and dependencies"
-echo "  • Install Arrmematey media automation stack"
-echo "  • Configure Docker storage for optimal performance"
+echo "  • Install complete Arrmematey stack"
+echo "  • Configure Docker storage properly"
 echo "  • Start all services automatically"
 echo ""
 echo -e "${YELLOW}Requirements:${NC}"
-echo "  • Fresh Debian 13 system"
 echo "  • Internet connection"
 echo "  • Sudo access (for system packages)"
-echo ""
-echo -e "${RED}⚠️  This will install Docker and configure storage${NC}"
 echo ""
 read -p "Continue with fresh installation? (yes/NO): " continue_install
 
@@ -35,59 +32,45 @@ if [[ "$continue_install" != "yes" ]]; then
 fi
 
 echo ""
-echo -e "${BLUE}🔧 Starting Installation...${NC}"
-
-# Step 1: Update system and install dependencies
-echo ""
 echo -e "${BLUE}[STEP 1/4]${NC} Updating system packages..."
 if sudo apt update; then
     echo -e "${GREEN}✅ System updated${NC}"
 else
-    echo -e "${RED}❌ System update failed${NC}"
-    exit 1
+    echo -e "${YELLOW}⚠️  System update failed (continuing...)${NC}"
 fi
 
 echo ""
 echo -e "${BLUE}[STEP 2/4]${NC} Installing Docker and dependencies..."
-if sudo apt install -y docker.io docker-compose curl wget gnupg2 ca-certificates; then
+# Install Docker and essential packages
+DEBIAN_FRONTEND=noninteractive sudo apt install -y docker.io docker-compose curl wget gnupg2 ca-certificates
+
+if [[ $? -eq 0 ]]; then
     echo -e "${GREEN}✅ Docker and dependencies installed${NC}"
 else
     echo -e "${RED}❌ Failed to install dependencies${NC}"
     exit 1
 fi
 
-# Step 2.5: Install XFS tools for overlay2.size support
 echo ""
-echo -e "${BLUE}[STEP 2.5/4]${NC} Installing XFS tools for Docker storage limits..."
-if sudo apt install -y xfsprogs; then
+echo -e "${BLUE}[STEP 3/4]${NC} Installing XFS tools for Docker storage..."
+# Install XFS tools for overlay2.size support
+sudo apt install -y xfsprogs
+
+if [[ $? -eq 0 ]]; then
     echo -e "${GREEN}✅ XFS tools installed${NC}"
 else
-    echo -e "${YELLOW}⚠️  XFS tools failed, but continuing...${NC}"
+    echo -e "${YELLOW}⚠️  XFS tools failed (continuing without overlay2.size limits)${NC}"
 fi
 
-# Step 3: Configure Docker storage
 echo ""
-echo -e "${BLUE}[STEP 3/4]${NC} Configuring Docker storage for optimal performance..."
+echo -e "${BLUE}[STEP 4/4]${NC} Creating installation directory..."
+INSTALL_DIR="$HOME/arrmematey"
+mkdir -p "$INSTALL_DIR"
+cd "$INSTALL_DIR"
 
-# Check if Docker is already configured with problematic overlay2.size
-if [[ -f "/etc/docker/daemon.json" ]]; then
-    current_config=$(cat /etc/docker/daemon.json 2>/dev/null)
-    if echo "$current_config" | grep -q "overlay2.size"; then
-        echo -e "${YELLOW}⚠️  Found problematic overlay2.size configuration${NC}"
-        echo -e "${BLUE}Removing overlay2.size limits...${NC}"
-        
-        # Remove overlay2.size from daemon.json
-        sudo sed -i '/overlay2.size/d' /etc/docker/daemon.json
-        
-        echo -e "${GREEN}✅ Removed overlay2.size limits${NC}"
-        echo -e "${BLUE}Docker will use default behavior (no size limits)${NC}"
-    else
-        echo -e "${GREEN}✅ Docker configuration is clean${NC}"
-fi
-
-# Create optimal daemon.json configuration
 echo ""
-echo -e "${BLUE}Creating optimal Docker daemon configuration...${NC}"
+echo -e "${BLUE}[STEP 5/4]${NC} Creating configuration..."
+# Create optimal Docker daemon configuration
 sudo tee /etc/docker/daemon.json > /dev/null << EOF
 {
   "storage-driver": "overlay2",
@@ -98,57 +81,15 @@ sudo tee /etc/docker/daemon.json > /dev/null << EOF
 EOF
 
 if [[ $? -eq 0 ]]; then
-    echo -e "${GREEN}✅ Docker daemon configured successfully${NC}"
+    echo -e "${GREEN}✅ Docker daemon configured${NC}"
 else
-    echo -e "${RED}❌ Failed to configure Docker daemon${NC}"
+    echo -e "${RED}❌ Failed to configure Docker${NC}"
     exit 1
 fi
 
-# Step 4: Start Docker
 echo ""
-echo -e "${BLUE}[STEP 4/4]${NC} Starting Docker daemon..."
-if sudo systemctl start docker; then
-    echo -e "${GREEN}✅ Docker started successfully${NC}"
-else
-    echo -e "${RED}❌ Failed to start Docker${NC}"
-    exit 1
-fi
-
-# Step 5: Verify Docker is working
-echo ""
-echo -e "${BLUE}[STEP 5/4]${NC} Verifying Docker installation..."
-sleep 3
-
-if docker ps &> /dev/null; then
-    echo -e "${GREEN}✅ Docker is running properly!${NC}"
-else
-    echo -e "${RED}❌ Docker failed to start${NC}"
-    exit 1
-fi
-
-# Step 6: Get Mullvad ID
-echo ""
-echo -e "${BLUE}[STEP 6/4]${NC} Getting Mullvad VPN configuration..."
-echo ""
-echo -e "${BLUE}Get your ID from: https://mullvad.net/en/account/${NC}"
-echo ""
-read -p "Enter Mullvad Account ID: " MULLVAD_ID
-while [[ -z "$MULLVAD_ID" ]]; do
-    echo -e "${RED}Account ID is required${NC}"
-    read -p "Enter Mullvad Account ID: " MULLVAD_ID
-done
-echo -e "${GREEN}✅ Mullvad ID configured${NC}"
-
-# Step 7: Create Arrmematey installation directory
-echo ""
-echo -e "${BLUE}[STEP 7/4]${NC} Creating installation directory..."
-INSTALL_DIR="$HOME/arrmematey"
-mkdir -p "$INSTALL_DIR"
-cd "$INSTALL_DIR"
-
-# Step 8: Create configuration
-echo ""
-echo -e "${BLUE}[STEP 8/4]${NC} Creating configuration..."
+echo -e "${BLUE}[STEP 6/4]${NC} Creating environment file..."
+# Create environment file
 cat > .env << EOF
 # Arrmematey Configuration
 PUID=$(id -u)
@@ -156,9 +97,7 @@ PGID=$(id -g)
 TZ=UTC
 
 # VPN Configuration
-MULLVAD_ACCOUNT_ID=$MULLVAD_ID
-MULLVAD_COUNTRY=us
-MULLVAD_CITY=ny
+MULLVAD_ACCOUNT_ID=your_mullvad_id_here
 
 # Docker volume paths
 MEDIA_PATH=/data/media
@@ -177,10 +116,6 @@ SABNZBD_PORT=8080
 QBITTORRENT_PORT=8081
 JELLYSEERR_PORT=5055
 
-# Service passwords
-SABNZBD_PASSWORD=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
-JELLYSEERR_PASSWORD=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
-
 # Quality profile
 QUALITY_PROFILE=standard
 
@@ -198,9 +133,9 @@ EOF
 
 echo -e "${GREEN}✅ Configuration created${NC}"
 
-# Step 9: Download docker-compose.yml
 echo ""
-echo -e "${BLUE}[STEP 9/4]${NC} Downloading service configuration..."
+echo -e "${BLUE}[STEP 7/4]${NC} Downloading docker-compose.yml..."
+# Download docker-compose.yml
 cat > docker-compose.yml << 'EOF'
 version: '3.8'
 
@@ -226,7 +161,6 @@ services:
     ports:
       - ${SONARR_PORT:-8989}:8989
       - ${RADARR_PORT:-7878}:7878
-      - ${LIDARR_PORT:-8686}:8686
       - ${LIDARR_PORT:-8686}:8686
       - ${SABNZBD_PORT:-8080}:8080
       - ${QBITTORRENT_PORT:-8081}:8081
@@ -366,18 +300,16 @@ volumes:
   downloads:
 EOF
 
-echo -e "${GREEN}✅ Service configuration downloaded${NC}"
+echo -e "${GREEN}✅ Docker Compose configuration downloaded${NC}"
 
-# Step 10: Create data directories
 echo ""
-echo -e "${BLUE}[STEP 10/4]${NC} Creating data directories..."
+echo -e "${BLUE}[STEP 8/4]${NC} Creating data directories..."
 mkdir -p ./data/{media/{tv,movies,music},downloads/{complete,incomplete},config}
 
 echo -e "${GREEN}✅ Data directories created${NC}"
 
-# Step 11: Start services
 echo ""
-echo -e "${BLUE}[STEP 11/4]${NC} Starting Arrmematey services..."
+echo -e "${BLUE}[STEP 9/4]${NC} Starting Arrmematey services..."
 docker-compose up -d
 
 echo ""
