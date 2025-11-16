@@ -212,9 +212,21 @@ expand_docker_storage() {
     # Get current Docker storage info
     local storage_driver=$(docker info 2>/dev/null | grep "Storage Driver:" | awk '{print $3}')
     local backing_fs=$(docker info 2>/dev/null | grep "Backing Filesystem:" | awk '{print $3}')
+    
+    # If backing filesystem is empty, try to detect it
+    if [[ -z "$backing_fs" ]]; then
+        local docker_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
+        if [[ -n "$docker_root" ]]; then
+            backing_fs=$(df -T "$docker_root" | tail -1 | awk '{print $2}')
+        else
+            backing_fs="unknown"
+        fi
+    fi
+    fi
+    
     echo -e "${BLUE}Current setup:${NC}"
     echo "  Storage Driver: $storage_driver"
-    echo "  Backing Filesystem: $backing_fs"
+    echo "  Backing Filesystem: ${backing_fs:-unknown}"
     echo ""
 
     # Show expansion options based on storage driver
@@ -231,23 +243,43 @@ expand_docker_storage() {
             ;;
         "devicemapper")
             echo "Devicemapper (LVM) expansion methods:"
-            echo "1) Extend existing LVM volume group"
-            echo "2) Add physical volume to volume group"
-            echo "3) Extend logical volume for thin pool"
+            echo "Your backing filesystem: $backing_fs"
+            echo ""
+            echo "Available expansion options:"
+            echo "1) 🔧 Extend existing LVM volume group"
+            echo "2) 📦 Add physical volume to volume group"
+            echo "3) 📁 Move Docker to different filesystem with more space"
+            echo ""
             ;;
         "zfs")
             echo "ZFS expansion methods:"
-            echo "1) Add disk to existing ZFS pool"
-            echo "2) Replace smaller disks with larger ones"
+            echo "Your backing filesystem: $backing_fs"
+            echo ""
+            echo "Available expansion options:"
+            echo "1) 🔧 Add disk to existing ZFS pool"
+            echo "2) 🔄 Replace smaller disks with larger ones"
+            echo "3) 📁 Move Docker to different filesystem with more space"
+            echo ""
             ;;
         "btrfs")
             echo "Btrfs expansion methods:"
-            echo "1) Add new block device to btrfs filesystem"
-            echo "2) Convert to larger filesystem"
+            echo "Your backing filesystem: $backing_fs"
+            echo ""
+            echo "Available expansion options:"
+            echo "1) 🔧 Add new block device to btrfs filesystem"
+            echo "2) 🔄 Convert to larger filesystem"
+            echo "3) 📁 Move Docker to different filesystem with more space"
+            echo ""
             ;;
         *)
             echo "Storage driver: $storage_driver"
-            echo "Please check Docker documentation for specific expansion method."
+            echo "Your backing filesystem: $backing_fs"
+            echo ""
+            echo "Available expansion options:"
+            echo "1) 🔧 Expand current filesystem if possible"
+            echo "2) 📦 Add storage device if supported"
+            echo "3) 📁 Move Docker to different filesystem with more space"
+            echo ""
             ;;
     esac
 
@@ -256,7 +288,8 @@ expand_docker_storage() {
 
     case $expansion_choice in
         1)
-            if [[ "$storage_driver" == "overlay2" ]]; then
+            echo -e "${BLUE}🔧 Expanding current filesystem...${NC}"
+            if [[ "$storage_driver" == "overlay2" || "$storage_driver" == "overlayfs" ]]; then
                 expand_overlay2_fs
             elif [[ "$storage_driver" == "devicemapper" ]]; then
                 expand_devicemapper_lvm
@@ -264,18 +297,21 @@ expand_docker_storage() {
                 expand_zfs_pool
             elif [[ "$storage_driver" == "btrfs" ]]; then
                 expand_btrfs_filesystem
+            else
+                echo -e "${YELLOW}Generic filesystem expansion for $storage_driver${NC}"
+                expand_generic_filesystem
             fi
             ;;
         2)
-            echo -e "${BLUE}Adding additional storage to filesystem...${NC}"
+            echo -e "${BLUE}📦 Adding storage device...${NC}"
             add_storage_device
             ;;
         3)
-            echo -e "${YELLOW}Switching to storage relocation...${NC}"
+            echo -e "${YELLOW}📁 Moving Docker to different filesystem...${NC}"
             offer_move_docker_storage
             ;;
         *)
-            echo -e "${RED}Invalid choice${NC}"
+            echo -e "${RED}Invalid choice. Please select 1-3.${NC}"
             ;;
     esac
 }
