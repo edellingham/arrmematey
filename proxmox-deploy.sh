@@ -112,7 +112,13 @@ get_ct_templates() {
     local all_templates=""
 
     # Method: Search each storage pool individually (more reliable)
-    for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' 2>/dev/null); do
+    print_status "Scanning storage pools for templates..."
+    for storage in $(pvesm status 2>/dev/null | grep -v "^Name" | grep -v "Content" | grep -v "Status" | awk '{print $1}' 2>/dev/null); do
+        # Skip empty storage names and invalid entries
+        if [[ -z "$storage" ]] || [[ "$storage" == "Name" ]] || [[ "$storage" == "Type" ]]; then
+            continue
+        fi
+
         print_status "Checking storage pool: $storage"
         local storage_templates=$(pvesm list "$storage" -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | awk '{print "'$storage'":vztmpl/"$1"}' 2>/dev/null || echo "")
 
@@ -132,9 +138,11 @@ get_ct_templates() {
 
         # Show what's actually available as fallback
         print_info "Available templates on this system:"
-        for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' 2>/dev/null | head -3); do
-            print_info "Storage $storage:"
-            pvesm list "$storage" -content vztmpl 2>/dev/null | head -5 || echo "  Could not list"
+        for storage in $(pvesm status 2>/dev/null | grep -v "^Name" | grep -v "Content" | grep -v "Status" | awk '{print $1}' 2>/dev/null | head -5); do
+            if [[ -n "$storage" && "$storage" != "Type" ]]; then
+                print_info "Storage $storage:"
+                pvesm list "$storage" -content vztmpl 2>/dev/null | head -5 || echo "  Could not list templates"
+            fi
         done
     else
         print_status "All available templates:"
@@ -480,32 +488,19 @@ select_template() {
         print_error "No Ubuntu/Debian templates found automatically!"
         echo ""
         print_info "Manual template selection required."
-        print_info "Available storage pools:"
-        pvesm status 2>/dev/null | grep -v "Content" | head -5 || echo "Could not list storage"
         echo ""
+        print_info "Please manually specify a template volume ID in the format:"
+        print_info "storage:vztmpl/filename.tar.gz (e.g., backups:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst)"
+        echo ""
+        read -p "Enter template volume ID manually: " manual_template
 
-        # Try to get templates from all storages
-        print_info "Searching all storages for Ubuntu/Debian templates..."
-        local found_any=false
-        for storage in $(pvesm status 2>/dev/null | grep -v "Content" | awk '{print $1}' | head -5); do
-            local storage_templates=$(pvesm list "$storage" -content vztmpl 2>/dev/null | grep -E "(ubuntu|debian)" | awk '{print "'$storage'":vztmpl/"$1"}' || echo "")
-            if [[ -n "$storage_templates" ]]; then
-                print_status "Found templates in $storage:"
-                echo "$storage_templates" | nl -nln
-                templates="$templates"$'\n'"$storage_templates"
-                found_any=true
-            fi
-        done
-
-        if [[ "$found_any" != "true" ]]; then
-            print_error "Still no templates found. Please download one manually:"
-            print_info "1. Go to Proxmox web UI"
-            print_info "2. Datacenter > Storage > Content"
-            print_info "3. Click 'Templates'"
-            print_info "4. Download 'ubuntu-22.04-standard' or similar"
-            print_info "5. Re-run this script"
+        if [[ -z "$manual_template" ]]; then
             exit 1
         fi
+
+        TEMPLATE="$manual_template"
+        print_status "Using manual template: $TEMPLATE"
+        return 0
     fi
 
     # Clean up templates and count them
