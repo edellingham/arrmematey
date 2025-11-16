@@ -12,8 +12,50 @@ The installer uses a hybrid architecture:
 - **Module Scripts** (downloaded from GitHub) - Each handles a specific installation phase
 - **One Command Install** - `bash <(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/arrmematey-proxmox-one-line.sh)`
 
+### Smart System Detection
+The installer automatically detects your environment:
+
+**Running on Debian 13 (Trixie)?**
+- ✅ **Skip VM creation** - Proceed directly to Arrmematey installation
+- Perfect for VMs that were pre-created or provisioned separately
+- ✅ **Auto-check resources** - Validates CPU, RAM, and storage
+
+**Running on Proxmox VE host?**
+- ✅ **Offer to create Debian 13 VM** - Automated or manual setup
+- ⚠️ **Resource warnings** - Shows recommended resources
+- Creates LXC container with Debian 13 for Arrmematey
+
+**Running elsewhere?**
+- ✅ **Manual instructions** - Provides guidance for VM creation
+- Or skip if you already have Debian 13
+
+### VM Resource Requirements
+
+Arrmematey requires adequate system resources:
+
+#### Minimum Requirements
+- **CPU**: 2 cores
+- **RAM**: 4 GB (4,096 MB)
+- **Storage**: 40 GB available
+
+#### Recommended for Production
+- **CPU**: 4 cores
+- **RAM**: 8 GB (8,192 MB)
+- **Storage**: 100 GB available
+
+⚠️ **Important**: The default Proxmox Debian 13 VM script may allocate insufficient resources. You'll need to manually increase VM resources after creation or configure them manually.
+
+**To increase VM resources:**
+1. Shutdown the VM
+2. In Proxmox Web UI: Hardware → Edit
+3. Increase CPU, RAM, and Disk size
+4. Start the VM
+5. Re-run the installer from within the VM
+
+The installer will validate resources and warn if they're insufficient.
+
 ### Installation Phases
-1. **Proxmox Integration** - Downloads and runs Debian 13 VM script
+1. **Proxmox Integration** - Downloads and runs Debian 13 VM script (if needed)
 2. **Dependency Management** - Progressive checking (basic → docker → arrmematey)
 3. **Docker Storage Setup** - Automatically detects and fixes overlay2 1GB limitation
 4. **Arrmematey Installation** - Downloads, builds, and deploys the full stack
