@@ -18,177 +18,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-set -e
-
-# Main menu
-show_menu() {
-    echo -e "${BLUE}🏴‍☠️ Arrmematey - Choose Your Action${NC}"
-    echo "===================================="
-    echo ""
-    echo -e "${CYAN}1) 🚀 Install Arrmematey${NC}"
-    echo "   Complete media automation stack installation"
-    echo ""
-    echo -e "${YELLOW}2) 🧹 Clean Up Docker${NC}"
-    echo "   Remove containers, unused images, and volumes"
-    echo ""
-    echo -e "${RED}3) 💥 Nuclear Clean Up${NC}"
-    echo "   Aggressive cleanup - fixes severe Docker issues"
-    echo ""
-    echo -e "${GREEN}4) ℹ️  Help${NC}"
-    echo "   Show detailed information about each option"
-    echo ""
-    read -p "Select an option (1-4): " choice
-}
-
-# Help function
-show_help() {
-    echo ""
-    echo -e "${BLUE}📖 Detailed Help${NC}"
-    echo "================="
-    echo ""
-    echo -e "${CYAN}🚀 Option 1 - Install Arrmematey${NC}"
-    echo "  • Installs complete media automation stack"
-    echo "  • Includes Prowlarr, Sonarr, Radarr, Lidarr, SABnzbd, qBittorrent, Jellyseerr"
-    echo "  • Sets up Mullvad VPN protection"
-    echo "  • Creates management UI"
-    echo "  • Requires: Docker, curl, Mullvad account"
-    echo ""
-    echo -e "${YELLOW}🧹 Option 2 - Clean Up Docker${NC}"
-    echo "  • Removes all Docker containers"
-    echo "  • Prunes unused images and volumes"
-    echo "  • Cleans system cache"
-    echo "  • Use when: Installation fails or Docker is cluttered"
-    echo ""
-    echo -e "${RED}💥 Option 3 - Nuclear Clean Up${NC}"
-    echo "  • Complete Docker/containerd rebuild"
-    echo "  • Removes ALL Docker data and configuration"
-    echo "  • Kills hanging processes"
-    echo "  • Use when: Severe Docker issues or containerd errors"
-    echo ""
-    echo -e "${GREEN}ℹ️  Option 4 - Help (this page)${NC}"
-    echo "  • Shows detailed information"
-    echo ""
-    echo "Press Enter to return to menu..."
-    read
-}
-
-# Regular cleanup function
-cleanup_docker() {
-    echo -e "${BLUE}🧹 Docker Cleanup${NC}"
-    echo "=================="
-    echo ""
-
-    # Stop and remove containers
-    echo "🛑 Stopping containers..."
-    docker ps -aq 2>/dev/null | xargs -r docker stop 2>/dev/null || echo "No containers to stop"
-    docker ps -aq 2>/dev/null | xargs -r docker rm -f 2>/dev/null || echo "No containers to remove"
-
-    # Clean system
-    echo "🧽 Cleaning Docker system..."
-    docker system prune -f 2>/dev/null || echo "System prune failed"
-    docker image prune -f 2>/dev/null || echo "Image prune failed"
-    docker volume prune -f 2>/dev/null || echo "Volume prune failed"
-    docker network prune -f 2>/dev/null || echo "Network prune failed"
-
-    # Clean specific directories
-    echo "🧽 Cleaning Docker directories..."
-    sudo rm -rf /var/lib/docker-tmp 2>/dev/null || true
-    sudo rm -rf /tmp/docker-* 2>/dev/null || true
-
-    echo ""
-    echo -e "${GREEN}✅ Docker cleanup complete!${NC}"
-    echo ""
-    read -p "Press Enter to continue..."
-}
-
-# Nuclear cleanup function
-nuclear_cleanup() {
-    echo -e "${RED}💥 Nuclear Docker Cleanup${NC}"
-    echo "=========================="
-    echo ""
-    echo -e "${RED}WARNING: This will remove ALL Docker data!${NC}"
-    read -p "Are you sure? Type 'yes' to continue: " confirm
-
-    if [[ "$confirm" != "yes" ]]; then
-        echo "Operation cancelled."
-        return
-    fi
-
-    echo ""
-    echo "🛑 Stopping services..."
-    sudo systemctl stop docker containerd 2>/dev/null || true
-
-    echo "🔥 Killing processes..."
-    sudo pkill -9 -f docker 2>/dev/null || true
-    sudo pkill -9 -f containerd 2>/dev/null || true
-
-    echo "🗑️ Removing ALL Docker data..."
-    sudo rm -rf /var/lib/docker* 2>/dev/null || true
-    sudo rm -rf /var/lib/containerd* 2>/dev/null || true
-    sudo rm -rf /run/docker* 2>/dev/null || true
-    sudo rm -rf /run/containerd* 2>/dev/null || true
-    sudo rm -f /var/run/docker.sock /run/docker.sock 2>/dev/null || true
-
-    echo "🧽 Cleaning configuration..."
-    sudo rm -rf ~/.docker 2>/dev/null || true
-
-    echo "🚀 Restarting services..."
-    sudo systemctl start containerd 2>/dev/null || true
-    sudo systemctl start docker 2>/dev/null || true
-
-    sleep 5
-
-    echo "🔍 Testing Docker..."
-    if docker ps &>/dev/null; then
-        echo -e "${GREEN}✅ Docker restarted successfully!${NC}"
-    else
-        echo -e "${RED}❌ Docker restart failed. You may need to reinstall Docker.${NC}"
-    fi
-
-    echo ""
-    echo -e "${GREEN}✅ Nuclear cleanup complete!${NC}"
-    echo ""
-    read -p "Press Enter to continue..."
-}
-
-echo -e "${BLUE}🏴‍☠️ Arrmematey One-Line Installer${NC}"
-echo "================================="
-echo ""
-
-# Main menu loop
-while true; do
-    show_menu
-
-    case $choice in
-        1)
-            echo ""
-            echo -e "${GREEN}🚀 Starting Arrmematey Installation...${NC}"
-            echo ""
-            # Run the original installation process
-            check_docker
-            get_mullvad_id
-            create_config
-            download_compose
-            start_services
-            show_completion
-            break
-            ;;
-        2)
-            cleanup_docker
-            ;;
-        3)
-            nuclear_cleanup
-            ;;
-        4)
-            show_help
-            ;;
-        *)
-            echo -e "${RED}Invalid option. Please select 1-4.${NC}"
-            sleep 2
-            ;;
-    esac
-    echo ""
-done
+# ==========================================
+# INSTALLATION FUNCTIONS (Moved to top)
+# ==========================================
 
 # Check requirements and setup docker-compose command
 check_docker() {
@@ -519,3 +351,185 @@ show_completion() {
     echo ""
     echo -e "${GREEN}🏴‍☠️ Happy treasure hunting!${NC}"
 }
+
+# ==========================================
+# CLEANUP FUNCTIONS
+# ==========================================
+
+# Regular cleanup function
+cleanup_docker() {
+    echo -e "${BLUE}🧹 Docker Cleanup${NC}"
+    echo "=================="
+    echo ""
+
+    # Stop and remove containers
+    echo "🛑 Stopping containers..."
+    docker ps -aq 2>/dev/null | xargs -r docker stop 2>/dev/null || echo "No containers to stop"
+    docker ps -aq 2>/dev/null | xargs -r docker rm -f 2>/dev/null || echo "No containers to remove"
+
+    # Clean system
+    echo "🧽 Cleaning Docker system..."
+    docker system prune -f 2>/dev/null || echo "System prune failed"
+    docker image prune -f 2>/dev/null || echo "Image prune failed"
+    docker volume prune -f 2>/dev/null || echo "Volume prune failed"
+    docker network prune -f 2>/dev/null || echo "Network prune failed"
+
+    # Clean specific directories
+    echo "🧽 Cleaning Docker directories..."
+    sudo rm -rf /var/lib/docker-tmp 2>/dev/null || true
+    sudo rm -rf /tmp/docker-* 2>/dev/null || true
+
+    echo ""
+    echo -e "${GREEN}✅ Docker cleanup complete!${NC}"
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
+# Nuclear cleanup function
+nuclear_cleanup() {
+    echo -e "${RED}💥 Nuclear Docker Cleanup${NC}"
+    echo "=========================="
+    echo ""
+    echo -e "${RED}WARNING: This will remove ALL Docker data!${NC}"
+    read -p "Are you sure? Type 'yes' to continue: " confirm
+
+    if [[ "$confirm" != "yes" ]]; then
+        echo "Operation cancelled."
+        return
+    fi
+
+    echo ""
+    echo "🛑 Stopping services..."
+    sudo systemctl stop docker containerd 2>/dev/null || true
+
+    echo "🔥 Killing processes..."
+    sudo pkill -9 -f docker 2>/dev/null || true
+    sudo pkill -9 -f containerd 2>/dev/null || true
+
+    echo "🗑️ Removing ALL Docker data..."
+    sudo rm -rf /var/lib/docker* 2>/dev/null || true
+    sudo rm -rf /var/lib/containerd* 2>/dev/null || true
+    sudo rm -rf /run/docker* 2>/dev/null || true
+    sudo rm -rf /run/containerd* 2>/dev/null || true
+    sudo rm -f /var/run/docker.sock /run/docker.sock 2>/dev/null || true
+
+    echo "🧽 Cleaning configuration..."
+    sudo rm -rf ~/.docker 2>/dev/null || true
+
+    echo "🚀 Restarting services..."
+    sudo systemctl start containerd 2>/dev/null || true
+    sudo systemctl start docker 2>/dev/null || true
+
+    sleep 5
+
+    echo "🔍 Testing Docker..."
+    if docker ps &>/dev/null; then
+        echo -e "${GREEN}✅ Docker restarted successfully!${NC}"
+    else
+        echo -e "${RED}❌ Docker restart failed. You may need to reinstall Docker.${NC}"
+    fi
+
+    echo ""
+    echo -e "${GREEN}✅ Nuclear cleanup complete!${NC}"
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
+# ==========================================
+# MENU SYSTEM
+# ==========================================
+
+# Main menu
+show_menu() {
+    echo -e "${BLUE}🏴‍☠️ Arrmematey - Choose Your Action${NC}"
+    echo "===================================="
+    echo ""
+    echo -e "${CYAN}1) 🚀 Install Arrmematey${NC}"
+    echo "   Complete media automation stack installation"
+    echo ""
+    echo -e "${YELLOW}2) 🧹 Clean Up Docker${NC}"
+    echo "   Remove containers, unused images, and volumes"
+    echo ""
+    echo -e "${RED}3) 💥 Nuclear Clean Up${NC}"
+    echo "   Aggressive cleanup - fixes severe Docker issues"
+    echo ""
+    echo -e "${GREEN}4) ℹ️  Help${NC}"
+    echo "   Show detailed information about each option"
+    echo ""
+    read -p "Select an option (1-4): " choice
+}
+
+# Help function
+show_help() {
+    echo ""
+    echo -e "${BLUE}📖 Detailed Help${NC}"
+    echo "================="
+    echo ""
+    echo -e "${CYAN}🚀 Option 1 - Install Arrmematey${NC}"
+    echo "  • Installs complete media automation stack"
+    echo "  • Includes Prowlarr, Sonarr, Radarr, Lidarr, SABnzbd, qBittorrent, Jellyseerr"
+    echo "  • Sets up Mullvad VPN protection"
+    echo "  • Creates management UI"
+    echo "  • Requires: Docker, curl, Mullvad account"
+    echo ""
+    echo -e "${YELLOW}🧹 Option 2 - Clean Up Docker${NC}"
+    echo "  • Removes all Docker containers"
+    echo "  • Prunes unused images and volumes"
+    echo "  • Cleans system cache"
+    echo "  • Use when: Installation fails or Docker is cluttered"
+    echo ""
+    echo -e "${RED}💥 Option 3 - Nuclear Clean Up${NC}"
+    echo "  • Complete Docker/containerd rebuild"
+    echo "  • Removes ALL Docker data and configuration"
+    echo "  • Kills hanging processes"
+    echo "  • Use when: Severe Docker issues or containerd errors"
+    echo ""
+    echo -e "${GREEN}ℹ️  Option 4 - Help (this page)${NC}"
+    echo "  • Shows detailed information"
+    echo ""
+    echo "Press Enter to return to menu..."
+    read
+}
+
+# ==========================================
+# MAIN EXECUTION
+# ==========================================
+
+echo -e "${BLUE}🏴‍☠️ Arrmematey One-Line Installer${NC}"
+echo "================================="
+echo ""
+
+# Main menu loop
+while true; do
+    show_menu
+
+    case $choice in
+        1)
+            echo ""
+            echo -e "${GREEN}🚀 Starting Arrmematey Installation...${NC}"
+            echo ""
+            # Run the original installation process
+            check_docker
+            get_mullvad_id
+            create_config
+            download_compose
+            start_services
+            show_completion
+            break
+            ;;
+        2)
+            cleanup_docker
+            ;;
+        3)
+            nuclear_cleanup
+            ;;
+        4)
+            show_help
+            ;;
+        *)
+            echo -e "${RED}Invalid option. Please select 1-4.${NC}"
+            sleep 2
+            ;;
+    esac
+    echo ""
+done
