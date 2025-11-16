@@ -94,13 +94,40 @@ check_docker_storage() {
         local root_available_gb=$((root_available / 1024 / 1024))
         if [[ $root_available_gb -lt 10 ]]; then
             echo -e "${YELLOW}⚠️ Docker storage is running low (${root_available_gb}GB free)${NC}"
-            offer_storage_fix
+            echo ""
+            echo "⚠️ Docker storage space is low. This can cause installation failures."
+            echo "Would you like to:"
+            echo ""
+            echo "1) Clean Docker storage (recommended for cluttered storage)"
+            echo "2) Move Docker storage to location with more space"
+            echo "3) Return to storage management menu"
+            echo ""
+            read -p "Select option (1-3): " fix_choice
+
+            case $fix_choice in
+                1)
+                    echo -e "${BLUE}🧹 Cleaning Docker storage...${NC}"
+                    perform_docker_cleanup
+                    ;;
+                2)
+                    echo -e "${BLUE}🔧 Moving Docker storage to larger location...${NC}"
+                    offer_move_docker_storage
+                    ;;
+                3)
+                    echo "Returning to storage management menu..."
+                    return
+                    ;;
+                *)
+                    echo -e "${YELLOW}Invalid choice. Returning to storage management menu...${NC}"
+                    return
+                    ;;
+            esac
         elif [[ $root_available_gb -lt 20 ]]; then
             echo -e "${YELLOW}⚠️ Docker storage is getting tight (${root_available_gb}GB free)${NC}"
             echo -e "${BLUE}Consider moving Docker storage to prevent future issues${NC}"
             read -p "Move Docker storage now? (y/N): " move_choice
             if [[ "$move_choice" =~ ^[Yy]$ ]]; then
-                move_docker_storage
+                offer_move_docker_storage
             fi
         else
             echo -e "${GREEN}✅ Docker storage has sufficient space${NC}"
@@ -108,9 +135,12 @@ check_docker_storage() {
     fi
 
     # Check overlay2 filesystem specifically
-    if [[ "$storage_driver" == "overlay2" ]]; then
+    if [[ "$storage_driver" == "overlay2" || "$storage_driver" == "overlayfs" ]]; then
         check_overlay2_space
     fi
+
+    echo ""
+    echo -e "${GREEN}✅ Storage status check complete${NC}"
 }
 
 # Check overlay2 filesystem space
@@ -220,7 +250,6 @@ expand_docker_storage() {
             backing_fs=$(df -T "$docker_root" | tail -1 | awk '{print $2}')
         else
             backing_fs="unknown"
-        fi
     fi
 
     echo -e "${BLUE}Current setup:${NC}"
@@ -334,16 +363,51 @@ expand_overlay2_fs() {
     echo "Overlay2 storage driver uses XFS filesystem for backing."
     echo "To expand Docker storage, you need to expand the underlying filesystem."
     echo ""
-    echo "Recommended approaches:"
-    echo "1) Expand existing XFS partition with LVM"
-    echo "2) Add new disk and expand volume group"
-    echo "3) Move Docker to larger filesystem"
+    echo "Available expansion approaches:"
+    echo "1) 🔧 Expand existing XFS partition with LVM"
+    echo "2) 📦 Add new disk and expand volume group"
+    echo "3) 📁 Move Docker to different filesystem with more space"
     echo ""
-    read -p "Would you like to move Docker to a larger filesystem instead? (y/N): " move_choice
+    read -p "Select expansion approach (1-3): " overlay_choice
 
-    if [[ "$move_choice" =~ ^[Yy]$ ]]; then
-        offer_move_docker_storage
-    fi
+    case $overlay_choice in
+        1)
+            echo -e "${BLUE}🔧 Expanding XFS with LVM${NC}"
+            echo ""
+            echo "To expand XFS filesystem with LVM:"
+            echo "1. Check available disk space: sudo fdisk -l"
+            echo "2. Create new partition: sudo fdisk /dev/sdX"
+            echo "3. Create physical volume: sudo pvcreate /dev/sdX1"
+            echo "4. Extend volume group: sudo vgextend vg-name /dev/sdX1"
+            echo "5. Extend logical volume: sudo lvextend -l+100%FREE /dev/vg-name/lv-name"
+            echo "6. Expand filesystem: sudo xfs_growfs /mount/point"
+            echo ""
+            echo "⚠️  This requires system administration knowledge!"
+            ;;
+        2)
+            echo -e "${BLUE}📦 Adding disk to volume group${NC}"
+            echo ""
+            echo "To add disk to existing volume group:"
+            echo "1. Check current volume groups: sudo vgdisplay"
+            echo "2. Initialize new disk: sudo pvcreate /dev/sdX"
+            echo "3. Add to volume group: sudo vgextend <vg-name> /dev/sdX"
+            echo "4. Extend logical volume: sudo lvextend -l+100%FREE <vg-name>/<lv-name>"
+            echo "5. Grow filesystem: sudo xfs_growfs /mount/point"
+            echo ""
+            echo "⚠️  This requires an available disk partition!"
+            ;;
+        3)
+            echo -e "${BLUE}📁 Moving Docker to different filesystem${NC}"
+            offer_move_docker_storage
+            return
+            ;;
+        *)
+            echo -e "${RED}Invalid choice. Please select 1-3.${NC}"
+            ;;
+    esac
+
+    echo ""
+    read -p "Press Enter to return to storage management menu..."
 }
 
 # Expand devicemapper LVM setup
@@ -357,7 +421,8 @@ expand_devicemapper_lvm() {
     if ! command -v vgs &> /dev/null; then
         echo -e "${RED}❌ LVM tools not available${NC}"
         echo "Install LVM: sudo apt install lvm2"
-        return 1
+        read -p "Press Enter to return to storage management menu..."
+        return
     fi
 
     # Show current LVM setup
@@ -372,6 +437,10 @@ expand_devicemapper_lvm() {
     echo "3) Extend thin pool: sudo lvextend -l+100%FREE docker/thinpool"
     echo ""
     echo "This requires available disk space and may need Docker restart."
+    echo ""
+    echo "⚠️  LVM operations require system administration knowledge!"
+    echo ""
+    read -p "Press Enter to return to storage management menu..."
 }
 
 # Expand ZFS pool
@@ -384,7 +453,8 @@ expand_zfs_pool() {
     if ! command -v zpool &> /dev/null; then
         echo -e "${RED}❌ ZFS tools not available${NC}"
         echo "Install ZFS: sudo apt install zfsutils-linux"
-        return 1
+        read -p "Press Enter to return to storage management menu..."
+        return
     fi
 
     # Show current ZFS pool
@@ -396,6 +466,10 @@ expand_zfs_pool() {
     echo "1) Check available disks: sudo fdisk -l"
     echo "2) Add disk to pool: sudo zpool add <pool-name> /dev/sdb"
     echo "3) Verify expansion: zpool list"
+    echo ""
+    echo "⚠️  ZFS operations require careful planning!"
+    echo ""
+    read -p "Press Enter to return to storage management menu..."
 }
 
 # Expand btrfs filesystem
@@ -408,7 +482,8 @@ expand_btrfs_filesystem() {
     if ! command -v btrfs &> /dev/null; then
         echo -e "${RED}❌ Btrfs tools not available${NC}"
         echo "Install btrfs: sudo apt install btrfs-progs"
-        return 1
+        read -p "Press Enter to return to storage management menu..."
+        return
     fi
 
     # Show current btrfs setup
@@ -420,6 +495,10 @@ expand_btrfs_filesystem() {
     echo "1) Check available disks: sudo fdisk -l"
     echo "2) Add device: sudo btrfs device add /dev/sdb /var/lib/docker"
     echo "3) Balance filesystem: sudo btrfs filesystem balance /var/lib/docker"
+    echo ""
+    echo "⚠️  Btrfs operations can take time to complete!"
+    echo ""
+    read -p "Press Enter to return to storage management menu..."
 }
 
 # Offer to move Docker storage as fallback
