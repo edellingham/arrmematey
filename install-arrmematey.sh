@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.7.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.8.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -301,13 +301,15 @@ install_arrmematey() {
     fi
 
     print_info "Cloning repository to $install_dir..."
-    start_spinner "Cloning Arrmematey repository"
-    if ! git clone "$repo_url" "$install_dir"; then
-        stop_spinner
+    print_info "⏳ This may take 30-60 seconds..."
+    echo ""
+
+    # Clone with progress indication
+    if ! git clone --progress "$repo_url" "$install_dir"; then
         error_exit "Failed to clone Arrmematey repository"
     fi
-    stop_spinner
 
+    echo ""
     print_success "Arrmematey downloaded successfully"
     cd "$install_dir"
 }
