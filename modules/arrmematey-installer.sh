@@ -1,6 +1,8 @@
 ###############################################################################
 # Arrmematey Installer Module
 # Downloads and installs Arrmematey media automation stack
+#
+# Version: 1.0.0
 ###############################################################################
 
 set -euo pipefail

@@ -1,6 +1,8 @@
 ###############################################################################
 # Configuration Prompt Module
 # Interactively configures Arrmematey settings
+#
+# Version: 1.0.0
 ###############################################################################
 
 set -euo pipefail

@@ -2,9 +2,16 @@
 ###############################################################################
 # Arrmematey Proxmox Installer - Single Line Installation
 # Usage: bash <(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/arrmematey-proxmox-one-line.sh)
+#
+# Version: 1.0.0
+# Last Updated: 2025-11-16
 ###############################################################################
 
 set -euo pipefail
+
+# Version information
+readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_DATE="2025-11-16"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -29,8 +36,27 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  Automated Proxmox + Arrmematey Deployment                  ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  Complete media automation stack with VPN protection          ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}$SCRIPT_VERSION${PURPLE}  |  Date: ${GREEN}$SCRIPT_DATE${PURPLE}               ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
+}
+
+# Print version information
+print_version() {
+    echo -e "${CYAN}Arrmematey Proxmox Installer${NC}"
+    echo -e "  Version: ${GREEN}$SCRIPT_VERSION${NC}"
+    echo -e "  Date: ${GREEN}$SCRIPT_DATE${NC}"
+    echo -e "  Repository: ${CYAN}https://github.com/edellingham/arrmematey${NC}"
+    echo ""
+}
+
+# Check for version flag
+check_version_flag() {
+    if [[ "${1:-}" == "--version" ]] || [[ "${1:-}" == "-v" ]]; then
+        print_version
+        exit 0
+    fi
 }
 
 print_step() {
@@ -71,10 +97,12 @@ check_root() {
 # Download module from GitHub
 download_module() {
     local module_name=$1
-    local module_url="https://raw.githubusercontent.com/edellingham/arrmematey/main/modules/${module_name}.sh"
+    # Add version-based cache busting
+    local cache_param="v=$SCRIPT_VERSION"
+    local module_url="https://raw.githubusercontent.com/edellingham/arrmematey/main/modules/${module_name}.sh?$cache_param"
     local module_file="/tmp/${module_name}.sh"
 
-    print_info "Downloading module: $module_name"
+    print_info "Downloading module: $module_name (v$SCRIPT_VERSION)"
 
     if ! curl -fsSL "$module_url" -o "$module_file"; then
         error_exit "Failed to download module: $module_name"
@@ -274,6 +302,9 @@ run_installation() {
 ###############################################################################
 
 main() {
+    # Check for version flag first
+    check_version_flag "$@"
+
     check_root
     select_install_mode
     run_installation

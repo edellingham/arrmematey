@@ -1,6 +1,8 @@
 ###############################################################################
 # Docker Storage Setup Module
 # Detects and fixes Docker overlay2 1GB storage limitation
+#
+# Version: 1.0.0
 ###############################################################################
 
 set -euo pipefail

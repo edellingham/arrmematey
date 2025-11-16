@@ -1,6 +1,8 @@
 ###############################################################################
 # Dependency Manager Module
 # Progressive dependency checking and installation
+#
+# Version: 1.0.0
 ###############################################################################
 
 set -euo pipefail
