@@ -378,6 +378,47 @@ EOF
     print_info "Using /data/arrmematey for data storage"
 }
 
+detect_existing_media() {
+    # Check for common media directory patterns
+    local storage_paths=(
+        "/storage/shared-media"
+        "/mnt/media"
+        "/media"
+        "/srv/media"
+    )
+
+    local detected_path=""
+    local path_type=""
+
+    for path in "${storage_paths[@]}"; do
+        if [[ -d "$path" ]]; then
+            print_info "Found existing media directory: $path"
+            detected_path="$path"
+            path_type="$path"
+            break
+        fi
+    done
+
+    # If no standard path found, check for Downloads or Media in common locations
+    if [[ -z "$detected_path" ]]; then
+        local common_paths=(
+            "$HOME/Downloads"
+            "$HOME/Media"
+            "/data/arrmematey"
+        )
+
+        for path in "${common_paths[@]}"; do
+            if [[ -d "$path" ]]; then
+                detected_path=$(dirname "$path")
+                path_type="common"
+                break
+            fi
+        done
+    fi
+
+    echo "$detected_path"
+}
+
 configure_arrmematey() {
     print_step "Configuring Arrmematey..."
 
@@ -409,22 +450,56 @@ configure_arrmematey() {
     read -r MULLVAD_CITY
     [[ -z "$MULLVAD_CITY" ]] && MULLVAD_CITY="ny"
 
-    # Directory customization
+    # Media directory detection
     echo ""
-    print_info "Directory paths (press Enter for /data/arrmematey defaults):"
-    echo ""
+    print_info "Checking for existing media directories..."
+    local existing_media
+    existing_media=$(detect_existing_media)
 
-    echo -n "Config directory [$data_dir/Config]: "
-    read -r CONFIG_PATH
-    [[ -z "$CONFIG_PATH" ]] && CONFIG_PATH="$data_dir/Config"
+    if [[ -n "$existing_media" ]] && [[ -d "$existing_media/Downloads" ]] || [[ -d "$existing_media/Media" ]]; then
+        print_warning "Found existing media structure at: $existing_media"
+        echo ""
+        echo "Detected structure:"
+        if [[ -d "$existing_media/Downloads" ]]; then
+            echo "  • Downloads: $existing_media/Downloads"
+            ls -la "$existing_media/Downloads" 2>/dev/null | grep -E "^d" | awk '{print "    - " $9}' | head -5
+        fi
+        if [[ -d "$existing_media/Media" ]]; then
+            echo "  • Media: $existing_media/Media"
+            ls -la "$existing_media/Media" 2>/dev/null | grep -E "^d" | awk '{print "    - " $9}' | head -5
+        fi
+        echo ""
+        read -p "Use existing media structure? (Y/n): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+            CONFIG_PATH="$data_dir/Config"
+            DOWNLOADS_PATH="$existing_media/Downloads"
+            MEDIA_PATH="$existing_media/Media"
+            print_success "Using existing media structure: $existing_media"
+        else
+            # Use defaults
+            CONFIG_PATH="$data_dir/Config"
+            MEDIA_PATH="$data_dir/Media"
+            DOWNLOADS_PATH="$data_dir/Downloads"
+        fi
+    else
+        # Directory customization
+        echo ""
+        print_info "Directory paths (press Enter for /data/arrmematey defaults):"
+        echo ""
 
-    echo -n "Media directory [$data_dir/Media]: "
-    read -r MEDIA_PATH
-    [[ -z "$MEDIA_PATH" ]] && MEDIA_PATH="$data_dir/Media"
+        echo -n "Config directory [$data_dir/Config]: "
+        read -r CONFIG_PATH
+        [[ -z "$CONFIG_PATH" ]] && CONFIG_PATH="$data_dir/Config"
 
-    echo -n "Downloads directory [$data_dir/Downloads]: "
-    read -r DOWNLOADS_PATH
-    [[ -z "$DOWNLOADS_PATH" ]] && DOWNLOADS_PATH="$data_dir/Downloads"
+        echo -n "Media directory [$data_dir/Media]: "
+        read -r MEDIA_PATH
+        [[ -z "$MEDIA_PATH" ]] && MEDIA_PATH="$data_dir/Media"
+
+        echo -n "Downloads directory [$data_dir/Downloads]: "
+        read -r DOWNLOADS_PATH
+        [[ -z "$DOWNLOADS_PATH" ]] && DOWNLOADS_PATH="$data_dir/Downloads"
+    fi
 
     # Update .env file
     print_info "Updating configuration..."
@@ -445,6 +520,8 @@ configure_arrmematey() {
     sed -i "s|TORRENTS_PATH=.*|TORRENTS_PATH=$DOWNLOADS_PATH/torrents|" "$env_file"
 
     print_success "Configuration saved"
+    print_info "Media Path: $MEDIA_PATH"
+    print_info "Downloads Path: $DOWNLOADS_PATH"
 }
 
 create_directories() {
