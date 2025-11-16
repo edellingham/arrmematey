@@ -29,6 +29,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+ORANGE='\033[0;33m'
 NC='\033[0m'
 
 # ==========================================
@@ -1958,22 +1959,31 @@ show_help() {
     echo "  • Use when: Severe Docker issues or containerd errors"
     echo ""
     echo -e "${BLUE}🗄️  Option 4 - Storage Management${NC}"
-    echo "  • Comprehensive Docker storage management"
-    echo "  • Check current storage status and usage"
-    echo "  • Expand storage (overlay2, devicemapper, ZFS, btrfs)"
-    echo "  • Move Docker to locations with more space"
-    echo "  • Clean Docker storage for more space"
-    echo "  • Use when: Need to manage or expand Docker storage"
+    echo "  • Comprehensive Docker storage driver management"
+    echo "  • Configure container writable layer size limits"
+    echo "  • Move Docker data to larger filesystem"
+    echo "  • Detailed storage analysis and breakdown"
+    echo "  • Safe Docker data relocation with backup/restore"
+    echo "  • Use when: Docker storage issues or need capacity expansion"
     echo ""
-    echo -e "${GREEN}💡 Storage Features:${NC}"
-    echo "  • Automatic Docker storage space detection"
-    echo "  • Detection of overlay2 filesystem issues"
-    echo "  • Interactive options to clean or move Docker storage"
-    echo "  • Driver-specific expansion methods (overlay2, devicemapper, ZFS, btrfs)"
-    echo "  • Moves Docker to locations with more space"
-    echo "  • Safe storage relocation with backup/restore"
+    echo -e "${ORANGE}🔧 Option 5 - Emergency Docker Fix${NC}"
+    echo "  • Quick fix for broken Docker daemon"
+    echo "  • Remove problematic daemon.json configuration"
+    echo "  • Restore from backup or create working config"
+    echo "  • Works even when Docker won't start"
+    echo "  • Use when: Docker daemon fails to start"
     echo ""
-    echo -e "${GREEN}ℹ️  Option 5 - Help (this page)${NC}"
+    echo -e "${GREEN}💡 Docker Storage Features (v$SCRIPT_VERSION):${NC}"
+    echo "  • Container writable layer size limit configuration"
+    echo "  • Automated Docker daemon.json backup and configuration"
+    echo "  • Docker root directory expansion to different filesystems"
+    echo "  • Detailed overlay2/overlayfs storage analysis"
+    echo "  • Safe storage driver configuration and changes"
+    echo "  • Per-container and global size limit management"
+    echo "  • Comprehensive Docker storage breakdown and analysis"
+    echo "  • Emergency Docker recovery tools (works when broken)"
+    echo ""
+    echo -e "${GREEN}ℹ️  Option 6 - Help (this page)${NC}"
     echo "  • Shows detailed information"
     echo ""
     echo "Press Enter to return to menu..."
@@ -2040,6 +2050,27 @@ echo ""
 # Check for updates
 check_for_updates
 
+# Check if Docker is broken and offer immediate fix
+if command -v docker &> /dev/null; then
+    if ! docker ps &> /dev/null 2>&1; then
+        echo -e "${RED}🚨 Docker daemon appears to be broken!${NC}"
+        echo ""
+        echo "Options:"
+        echo "1) 🗄️  Storage Management → Fix Broken Docker (recommended)"
+        echo "2) 🚀 Continue to main menu"
+        echo ""
+        read -p "Select option (1-2): " docker_fix_choice
+
+        if [[ "$docker_fix_choice" == "1" ]]; then
+            echo ""
+            show_storage_menu
+            docker fix_broken_docker
+            read -p "Press Enter to continue to main menu..."
+        fi
+        echo ""
+    fi
+fi
+
 # Main menu loop
 while true; do
     show_menu
@@ -2068,10 +2099,20 @@ while true; do
             show_storage_menu
             ;;
         5)
+            # Emergency Docker fix
+            echo ""
+            echo -e "${ORANGE}🔧 Emergency Docker Fix${NC}"
+            echo "========================"
+            echo ""
+            fix_broken_docker
+            echo ""
+            read -p "Press Enter to return to main menu..."
+            ;;
+        6)
             show_help
             ;;
         *)
-            echo -e "${RED}Invalid option. Please select 1-5.${NC}"
+            echo -e "${RED}Invalid option. Please select 1-6.${NC}"
             sleep 2
             ;;
     esac
