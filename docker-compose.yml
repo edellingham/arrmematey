@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Gluetun VPN with Mullvad
   gluetun:
@@ -10,7 +8,7 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${MULLVAD_ACCOUNT_ID}
+      - MULLVAD_USER=${MULLVAD_ACCOUNT_ID}
       - SERVER_Countries=${MULLVAD_COUNTRY:-us}
       - SERVER_Cities=${MULLVAD_CITY:-ny}
       - TZ=${TZ:-UTC}
@@ -33,9 +31,9 @@ services:
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://ifconfig.me"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
 
   # Prowlarr - Indexer Manager
   prowlarr:
