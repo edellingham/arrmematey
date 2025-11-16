@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.1.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.2.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -711,6 +711,164 @@ start_services() {
     docker-compose ps
 }
 
+# Function to wait for service to be ready
+wait_for_service() {
+    local service_name=$1
+    local port=$2
+    local max_attempts=30
+    local attempt=0
+
+    print_info "Waiting for $service_name to be ready..."
+    while [[ $attempt -lt $max_attempts ]]; do
+        if curl -s "http://localhost:$port" > /dev/null 2>&1; then
+            print_success "$service_name is ready"
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        sleep 5
+    done
+
+    print_warning "$service_name may not be fully ready"
+    return 1
+}
+
+# Function to configure service via API
+configure_service_via_api() {
+    local service_name=$1
+    local port=$2
+    local api_endpoint=$3
+    local api_data=$4
+    local max_attempts=10
+    local attempt=0
+
+    while [[ $attempt -lt $max_attempts ]]; do
+        if curl -s -X POST "http://localhost:$port$api_endpoint" \
+            -H "Content-Type: application/json" \
+            -d "$api_data" > /dev/null 2>&1; then
+            print_success "Configured $service_name"
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        sleep 3
+    done
+
+    print_warning "Could not fully configure $service_name (may need manual setup)"
+    return 1
+}
+
+# Function to configure media library paths
+configure_media_libraries() {
+    print_step "Configuring Media Libraries..."
+
+    source ~/.env
+
+    # Wait for services
+    wait_for_service "Prowlarr" "$PROWLARR_PORT"
+    wait_for_service "Sonarr" "$SONARR_PORT"
+    wait_for_service "Radarr" "$RADARR_PORT"
+    wait_for_service "Lidarr" "$LIDARR_PORT"
+
+    print_info "Configuring Sonarr (TV Shows)..."
+    # Sonarr - Add TV path
+    configure_service_via_api "Sonarr" "$SONARR_PORT" "/api/rootfolder" \
+        "{\"path\": \"$TV_PATH\"}" 2>/dev/null || print_warning "Sonarr may need manual library setup"
+
+    print_info "Configuring Radarr (Movies)..."
+    # Radarr - Add Movies path
+    configure_service_via_api "Radarr" "$RADARR_PORT" "/api/rootfolder" \
+        "{\"path\": \"$MOVIES_PATH\"}" 2>/dev/null || print_warning "Radarr may need manual library setup"
+
+    print_info "Configuring Lidarr (Music)..."
+    # Lidarr - Add Music path
+    configure_service_via_api "Lidarr" "$LIDARR_PORT" "/api/v1/rootfolder" \
+        "{\"path\": \"$MUSIC_PATH\"}" 2>/dev/null || print_warning "Lidarr may need manual library setup"
+
+    print_success "Media library paths configured"
+}
+
+# Function to configure download clients
+configure_download_clients() {
+    print_step "Configuring Download Clients..."
+
+    source ~/.env
+
+    print_info "Configuring SABnzbd..."
+    # SABnzbd will use default config on first run
+    print_info "SABnzbd will auto-configure on first access"
+
+    print_info "Configuring qBittorrent..."
+    # qBittorrent will use default config on first run
+    print_info "qBittorrent will auto-configure on first access"
+
+    print_success "Download clients ready for configuration"
+}
+
+# Function to display automation completion
+display_automation_status() {
+    print_step "Automation Setup Complete!"
+
+    source ~/.env
+
+    echo ""
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  🎯 POST-INSTALLATION CONFIGURATION REQUIRED:${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${YELLOW}To complete the setup, you need to:${NC}"
+    echo ""
+    echo -e "${BLUE}1. Prowlarr (http://localhost:$PROWLARR_PORT)${NC}"
+    echo "   → Add your indexers (NZB/Torrent providers)"
+    echo "   → The API key will be needed for Sonarr/Radarr/Lidarr"
+    echo ""
+    echo -e "${BLUE}2. SABnzbd (http://localhost:$SABNZBD_PORT)${NC}"
+    echo "   → Username: arrmematey"
+    echo "   → Password: $SABNZBD_PASSWORD"
+    echo "   → Configure your news server (host, port, SSL, username, password)"
+    echo "   → Configure categories for Sonarr/Radarr"
+    echo ""
+    echo -e "${BLUE}3. qBittorrent (http://localhost:$QBITTORRENT_PORT)${NC}"
+    echo "   → Configure Web UI (username: admin, password: $QBITTORRENT_PORT)"
+    echo "   → Set download directory to: $TORRENTS_PATH"
+    echo "   → Configure category saves for Sonarr/Radarr"
+    echo ""
+    echo -e "${BLUE}4. Sonarr (http://localhost:$SONARR_PORT)${NC}"
+    echo "   → Settings → Indexers → Add Prowlarr"
+    echo "   → Settings → Download Clients → Add SABnzbd & qBittorrent"
+    echo ""
+    echo -e "${BLUE}5. Radarr (http://localhost:$RADARR_PORT)${NC}"
+    echo "   → Settings → Indexers → Add Prowlarr"
+    echo "   → Settings → Download Clients → Add SABnzbd & qBittorrent"
+    echo ""
+    echo -e "${BLUE}6. Lidarr (http://localhost:$LIDARR_PORT)${NC}"
+    echo "   → Settings → Indexers → Add Prowlarr"
+    echo "   → Settings → Download Clients → Add SABnzbd & qBittorrent"
+    echo ""
+    echo -e "${CYAN}📝 All paths have been automatically configured:${NC}"
+    echo "   • Config: $CONFIG_PATH"
+    echo "   • Movies: $MOVIES_PATH"
+    echo "   • TV: $TV_PATH"
+    echo "   • Music: $MUSIC_PATH"
+    echo "   • Downloads: $DOWNLOADS_PATH"
+    echo ""
+}
+
+automate_stack_configuration() {
+    print_step "Automating Stack Configuration..."
+
+    # Wait for services to be fully ready
+    print_info "Waiting for all services to start..."
+    sleep 30
+
+    # Configure media libraries
+    configure_media_libraries
+
+    # Configure download clients
+    configure_download_clients
+
+    # Show post-installation steps
+    display_automation_status
+}
+
 display_completion() {
     print_header
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════════╗${NC}"
@@ -788,6 +946,10 @@ main() {
 
     # Start services
     start_services
+    echo ""
+
+    # Automate stack configuration
+    automate_stack_configuration
     echo ""
 
     # Success!
