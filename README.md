@@ -11,8 +11,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/m
 ```
 
 **What it does:**
-- ✅ Checks Docker (installs if needed)
+- ✅ Checks Docker and storage configuration
 - ✅ Asks for your Mullvad VPN ID  
+- ✅ Auto-fixes storage issues if detected
 - ✅ Downloads and configures everything
 - ✅ Starts all services automatically
 
@@ -39,6 +40,12 @@ cd arrmematey
 - **Mullvad VPN** protects all downloads with kill-switch
 - **Network isolation** keeps services secure
 - **Automatic configuration** requires no manual setup
+
+## 🔧 Smart Installation Features
+- **Docker Storage Check**: Automatically detects and fixes storage issues
+- **Overlay2 Monitoring**: Prevents image extraction failures
+- **Cleanup Options**: Built-in Docker cleanup for failed installations
+- **Interactive Menu**: Choose installation or cleanup options
 
 ## 🧭 Service Access
 | Service | URL | Role |

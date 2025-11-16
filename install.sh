@@ -47,6 +47,9 @@ check_docker() {
 
     echo -e "${GREEN}✅ Docker found and running${NC}"
 
+    # Check Docker storage driver and space
+    check_docker_storage
+
     # Set docker-compose command (supports both docker-compose and 'docker compose')
     if command -v docker-compose &> /dev/null; then
         DOCKER_COMPOSE_CMD="docker-compose"
@@ -59,6 +62,135 @@ check_docker() {
         echo "Install docker-compose:"
         echo "  Ubuntu/Debian: sudo apt install docker-compose"
         echo "  Or install Docker Desktop which includes compose"
+        exit 1
+    fi
+}
+
+# Check Docker storage configuration
+check_docker_storage() {
+    echo ""
+    echo -e "${BLUE}[STEP]${NC} Checking Docker storage configuration..."
+
+    # Get Docker info
+    local docker_info=$(docker info 2>/dev/null)
+    local storage_driver=$(echo "$docker_info" | grep "Storage Driver:" | awk '{print $3}')
+    local docker_root_dir=$(echo "$docker_info" | grep "Docker Root Dir:" | awk '{print $4}')
+
+    echo -e "${GREEN}✅ Storage Driver: ${storage_driver}${NC}"
+    echo -e "${GREEN}✅ Root Directory: ${docker_root_dir}${NC}"
+
+    # Check space on Docker root directory
+    if [[ -n "$docker_root_dir" && -d "$docker_root_dir" ]]; then
+        local root_available=$(df "$docker_root_dir" | tail -1 | awk '{print $4}')
+        local root_size=$(df "$docker_root_dir" | tail -1 | awk '{print $2}')
+        local root_used=$(df "$docker_root_dir" | tail -1 | awk '{print $3}')
+
+        echo -e "${BLUE}Docker Storage Space:${NC}"
+        echo "  Total: $(echo $root_size | numfmt --to=iec)"
+        echo "  Used:  $(echo $root_used | numfmt --to=iec)"
+        echo "  Free:  $(echo $root_available | numfmt --to=iec)"
+
+        # Check if space is critically low (less than 10GB)
+        local root_available_gb=$((root_available / 1024 / 1024))
+        if [[ $root_available_gb -lt 10 ]]; then
+            echo -e "${YELLOW}⚠️ Docker storage is running low (${root_available_gb}GB free)${NC}"
+            offer_storage_fix
+        else
+            echo -e "${GREEN}✅ Docker storage has sufficient space${NC}"
+        fi
+    fi
+
+    # Check overlay2 filesystem specifically
+    if [[ "$storage_driver" == "overlay2" ]]; then
+        check_overlay2_space
+    fi
+}
+
+# Check overlay2 filesystem space
+check_overlay2_space() {
+    echo ""
+    echo -e "${BLUE}[STEP]${NC} Checking overlay2 filesystem..."
+
+    local overlay_mount=$(findmnt -t overlay -o SOURCE | head -1)
+    if [[ -n "$overlay_mount" ]]; then
+        echo -e "${GREEN}✅ Overlay2 mount: $overlay_mount${NC}"
+
+        # Check space on overlay mount
+        local overlay_available=$(df "$overlay_mount" | tail -1 | awk '{print $4}')
+        local overlay_available_gb=$((overlay_available / 1024 / 1024))
+
+        echo -e "${BLUE}Overlay2 Space:${NC}"
+        echo "  Available: $(echo $overlay_available | numfmt --to=iec)"
+
+        if [[ $overlay_available_gb -lt 5 ]]; then
+            echo -e "${RED}❌ Overlay2 filesystem is critically low (${overlay_available_gb}GB free)${NC}"
+            echo -e "${YELLOW}This will cause image extraction failures!${NC}"
+            offer_storage_fix
+        else
+            echo -e "${GREEN}✅ Overlay2 filesystem has adequate space${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️ Could not find overlay2 mount point${NC}"
+    fi
+}
+
+# Offer to fix storage issues
+offer_storage_fix() {
+    echo ""
+    echo -e "${YELLOW}Docker storage space is low. This can cause installation failures.${NC}"
+    echo "Would you like to:"
+    echo ""
+    echo "1) Clean Docker storage (recommended)"
+    echo "2) Switch to different storage driver (advanced)"
+    echo "3) Continue anyway (risky)"
+    echo ""
+    read -p "Select option (1-3): " fix_choice
+
+    case $fix_choice in
+        1)
+            echo -e "${BLUE}🧹 Cleaning Docker storage...${NC}"
+            perform_docker_cleanup
+            ;;
+        2)
+            echo -e "${BLUE}🔧 Storage driver change not implemented yet${NC}"
+            echo -e "${YELLOW}Please clean Docker storage manually or use option 3${NC}"
+            ;;
+        3)
+            echo -e "${YELLOW}Continuing despite low storage space...${NC}"
+            echo -e "${YELLOW}Installation may fail!${NC}"
+            ;;
+        *)
+            echo -e "${RED}Invalid choice. Continuing...${NC}"
+            ;;
+    esac
+}
+
+# Perform Docker cleanup
+perform_docker_cleanup() {
+    echo "🛑 Stopping all containers..."
+    docker stop $(docker ps -aq) 2>/dev/null || true
+    docker rm $(docker ps -aq) 2>/dev/null || true
+
+    echo "🗑️ Removing unused images..."
+    docker image prune -af
+
+    echo "🗑️ Removing unused volumes..."
+    docker volume prune -f
+
+    echo "🗑️ Removing unused networks..."
+    docker network prune -f
+
+    echo "🧽 Pruning system..."
+    docker system prune -af
+
+    echo "🔄 Restarting Docker..."
+    sudo systemctl restart docker
+    sleep 3
+
+    if docker ps &>/dev/null; then
+        echo -e "${GREEN}✅ Docker cleanup completed successfully${NC}"
+    else
+        echo -e "${RED}❌ Docker restart failed${NC}"
         exit 1
     fi
 }
