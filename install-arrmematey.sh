@@ -17,6 +17,62 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+# Spinner variables
+SPINNER_PID=""
+SPINNER_MESSAGE=""
+SPINNER_DONE=""
+
+# Spinner animation frames
+SPINNER_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
+show_spinner() {
+    local message="$1"
+    local frame=0
+
+    while [[ -z "$SPINNER_DONE" ]]; do
+        printf "\r${CYAN}${SPINNER_FRAMES[$frame]}${NC} ${message}"
+        frame=$(((frame + 1) % ${#SPINNER_FRAMES[@]}))
+        sleep 0.15
+    done
+    printf "\r${GREEN}✓${NC} ${message}                \n"
+}
+
+start_spinner() {
+    SPINNER_MESSAGE="$1"
+    SPINNER_DONE=""
+    show_spinner "$SPINNER_MESSAGE" &
+    SPINNER_PID=$!
+}
+
+stop_spinner() {
+    SPINNER_DONE="done"
+    if [[ -n "$SPINNER_PID" ]]; then
+        wait $SPINNER_PID 2>/dev/null || true
+    fi
+}
+
+do_with_progress() {
+    local message="$1"
+    shift
+
+    start_spinner "$message"
+
+    # Execute command and capture output
+    local output
+    output=$("$@" 2>&1)
+    local exit_code=$?
+
+    stop_spinner
+
+    if [[ $exit_code -ne 0 ]]; then
+        echo -e "${RED}✗${NC} Failed: $message"
+        echo "$output"
+        exit $exit_code
+    fi
+
+    return 0
+}
+
 print_header() {
     clear
     echo -e "${PURPLE}╔════════════════════════════════════════════════════════════════╗${NC}"
@@ -147,14 +203,21 @@ check_docker() {
 install_docker() {
     print_step "Installing Docker..."
 
-    print_info "Downloading and running Docker installation script..."
-    if curl -fsSL https://get.docker.com -o /tmp/get-docker.sh; then
-        sh /tmp/get-docker.sh
-        rm /tmp/get-docker.sh
-        print_success "Docker installed successfully"
-    else
+    print_info "Downloading Docker installation script..."
+    start_spinner "Downloading Docker installer"
+    if ! curl -fsSL https://get.docker.com -o /tmp/get-docker.sh; then
+        stop_spinner
         error_exit "Failed to download Docker installation script"
     fi
+    stop_spinner
+
+    print_info "Running Docker installation (this may take a few minutes)..."
+    start_spinner "Installing Docker engine"
+    sh /tmp/get-docker.sh
+    stop_spinner
+
+    rm /tmp/get-docker.sh
+    print_success "Docker installation complete"
 
     # Start and enable Docker
     print_info "Starting Docker service..."
@@ -162,6 +225,7 @@ install_docker() {
     systemctl enable docker
 
     # Verify installation
+    print_info "Verifying Docker installation..."
     if docker run --rm hello-world &> /dev/null; then
         print_success "Docker is working correctly"
     else
@@ -192,12 +256,14 @@ install_arrmematey() {
     fi
 
     print_info "Cloning repository to $install_dir..."
-    if git clone "$repo_url" "$install_dir"; then
-        print_success "Arrmematey downloaded successfully"
-    else
+    start_spinner "Cloning Arrmematey repository"
+    if ! git clone "$repo_url" "$install_dir"; then
+        stop_spinner
         error_exit "Failed to clone Arrmematey repository"
     fi
+    stop_spinner
 
+    print_success "Arrmematey downloaded successfully"
     cd "$install_dir"
 }
 
@@ -380,28 +446,43 @@ start_services() {
     source ~/.env
 
     # Pull latest images
-    print_info "Pulling Docker images..."
-    if docker-compose pull; then
-        print_success "Docker images pulled"
+    print_info "Pulling Docker images (this will take a few minutes)..."
+    start_spinner "Pulling Docker images"
+    if ! docker-compose pull 2>&1 | grep -q "Pulling from"; then
+        stop_spinner
+        error_exit "Failed to pull Docker images"
     fi
+    stop_spinner
+    print_success "Docker images pulled"
 
     # Build UI
     print_info "Building management UI..."
+    start_spinner "Installing Node.js dependencies"
     cd ui
-    if npm install && docker build -t arrstack-ui .; then
-        print_success "UI Docker image built"
-    else
+    if ! npm install &>/dev/null; then
+        stop_spinner
+        error_exit "Failed to install Node.js dependencies"
+    fi
+    stop_spinner
+
+    start_spinner "Building UI Docker image"
+    if ! docker build -t arrstack-ui . &>/dev/null; then
+        stop_spinner
         error_exit "Failed to build UI Docker image"
     fi
+    stop_spinner
+    print_success "UI Docker image built"
     cd /opt/arrmematey
 
     # Start services
     print_info "Starting Arrmematey stack..."
-    if docker-compose --profile full up -d; then
-        print_success "Arrmematey services started"
-    else
+    start_spinner "Starting all services"
+    if ! docker-compose --profile full up -d &>/dev/null; then
+        stop_spinner
         error_exit "Failed to start services"
     fi
+    stop_spinner
+    print_success "Arrmematey services started"
 
     # Wait for services
     print_info "Waiting for services to initialize..."
