@@ -62,7 +62,7 @@ cd arrmematey
 ## 🧭 Service Access
 | Service | URL | Role |
 |---------|-----|------|
-| Management UI | http://localhost:8080 | Main control center |
+| Management UI | http://localhost:8787 | Main control center |
 | Prowlarr | http://localhost:9696 | Indexer management |
 | Sonarr | http://localhost:8989 | TV automation |
 | Radarr | http://localhost:7878 | Movie automation |
