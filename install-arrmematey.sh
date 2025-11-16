@@ -95,14 +95,20 @@ check_system_resources() {
     local cpu_cores
     cpu_cores=$(nproc)
 
-    # Check disk space
+    # Check disk space (total vs available)
+    local root_total_gb
+    root_total_gb=$(df -BG / | awk 'NR==2 {print $2}' | sed 's/G//')
     local root_avail_gb
     root_avail_gb=$(df -BG / | awk 'NR==2 {print $4}' | sed 's/G//')
+    local root_used_gb
+    root_used_gb=$(df -BG / | awk 'NR==2 {print $3}' | sed 's/G//')
 
     echo ""
     print_info "System Resources:"
     echo "  • CPU: $cpu_cores cores"
-    echo "  • RAM: ${total_mem_gb} GB"
+    echo "  • RAM: ${total_mem_gb} GB (total system memory)"
+    echo "  • Total Storage: ${root_total_gb}GB"
+    echo "  • Used Storage: ${root_used_gb}GB"
     echo "  • Available Storage: ${root_avail_gb}GB"
     echo ""
 
@@ -112,7 +118,8 @@ check_system_resources() {
     fi
 
     if [[ $root_avail_gb -lt 20 ]]; then
-        print_warning "Low disk space (${root_avail_gb}GB). Recommended: 40GB+"
+        print_warning "Low disk space (${root_avail_gb}GB available). Recommended: 40GB+"
+        print_info "Your disk has ${root_total_gb}GB total, but only ${root_avail_gb}GB free"
     fi
 
     return 0
