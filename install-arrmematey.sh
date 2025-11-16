@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.10.1${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.10.2${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -985,12 +985,17 @@ start_services() {
     print_success "Node.js dependencies installed"
 
     print_info "Building UI Docker image..."
-    start_spinner "Building UI Docker image"
-    if ! docker build -t arrstack-ui . &>/dev/null; then
-        stop_spinner
+    print_info "Building UI Docker image (this may take 2-3 minutes)..."
+    print_info "⏳ Building image - please be patient..."
+    print_info "You'll see Docker build progress below..."
+    echo ""
+
+    # Show Docker build output with progress
+    if ! docker build -t arrstack-ui . 2>&1; then
+        echo ""
         error_exit "Failed to build UI Docker image"
     fi
-    stop_spinner
+    echo ""
     print_success "UI Docker image built"
     cd /opt/arrmematey
 
