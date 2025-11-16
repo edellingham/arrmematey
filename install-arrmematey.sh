@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.0.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.1.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -419,6 +419,76 @@ detect_existing_media() {
     echo "$detected_path"
 }
 
+# Function to check if a directory contains media by looking for common subdirectory patterns
+check_media_patterns() {
+    local base_dir="$1"
+    local has_media=0
+    local has_downloads=0
+    local pattern_matches=()
+
+    # Check for Downloads/Usenet/Torrents patterns (case insensitive)
+    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(downloads?|usenet|torrents?)$" > /dev/null; then
+        has_downloads=1
+        pattern_matches+=("Downloads")
+    fi
+
+    # Check for Movies/Films patterns
+    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(movies?|films?)$" > /dev/null; then
+        has_media=1
+        pattern_matches+=("Movies")
+    fi
+
+    # Check for TV patterns
+    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(tv( shows?)?|tvshows?|series)$" > /dev/null; then
+        has_media=1
+        pattern_matches+=("TV Shows")
+    fi
+
+    # Check for Music/Audio patterns
+    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(music|audio|songs?)$" > /dev/null; then
+        has_media=1
+        pattern_matches+=("Music")
+    fi
+
+    # Return result
+    if [[ $has_media -eq 1 ]] || [[ $has_downloads -eq 1 ]]; then
+        echo "1"
+    else
+        echo "0"
+    fi
+}
+
+# Enhanced function to find media directories with pattern matching
+find_media_directories() {
+    local base_dir="$1"
+    local media_subdir=""
+    local downloads_subdir=""
+
+    # Find Downloads/Usenet/Torrents directory
+    for dir in Downloads downloads Usenet usenet Torrents torrents; do
+        if [[ -d "$base_dir/$dir" ]]; then
+            downloads_subdir="$base_dir/$dir"
+            break
+        fi
+    done
+
+    # Find Media directory (various naming patterns)
+    for dir in Media media Movies movies TV\ Shows TV\ Shows tv\ shows tvshows TV TV series Series; do
+        if [[ -d "$base_dir/$dir" ]]; then
+            media_subdir="$base_dir/$dir"
+            break
+        fi
+    done
+
+    # If no standard "Media" dir, check if base dir itself contains media patterns
+    if [[ -z "$media_subdir" ]] && check_media_patterns "$base_dir" | grep -q "1"; then
+        media_subdir="$base_dir"
+    fi
+
+    # Return both paths
+    echo "$downloads_subdir|$media_subdir"
+}
+
 configure_arrmematey() {
     print_step "Configuring Arrmematey..."
 
@@ -456,28 +526,60 @@ configure_arrmematey() {
     local existing_media
     existing_media=$(detect_existing_media)
 
-    if [[ -n "$existing_media" ]] && [[ -d "$existing_media/Downloads" ]] || [[ -d "$existing_media/Media" ]]; then
-        print_warning "Found existing media structure at: $existing_media"
-        echo ""
-        echo "Detected structure:"
-        if [[ -d "$existing_media/Downloads" ]]; then
-            echo "  • Downloads: $existing_media/Downloads"
-            ls -la "$existing_media/Downloads" 2>/dev/null | grep -E "^d" | awk '{print "    - " $9}' | head -5
-        fi
-        if [[ -d "$existing_media/Media" ]]; then
-            echo "  • Media: $existing_media/Media"
-            ls -la "$existing_media/Media" 2>/dev/null | grep -E "^d" | awk '{print "    - " $9}' | head -5
-        fi
-        echo ""
-        read -p "Use existing media structure? (Y/n): " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-            CONFIG_PATH="$data_dir/Config"
-            DOWNLOADS_PATH="$existing_media/Downloads"
-            MEDIA_PATH="$existing_media/Media"
-            print_success "Using existing media structure: $existing_media"
+    if [[ -n "$existing_media" ]]; then
+        # Use enhanced pattern matching
+        IFS='|' read -r downloads_path media_path < <(find_media_directories "$existing_media")
+
+        # Validate that we found either downloads or media
+        if [[ -n "$downloads_path" ]] || [[ -n "$media_path" ]]; then
+            print_warning "Found existing media structure at: $existing_media"
+            echo ""
+            echo "Detected structure:"
+
+            # Show downloads directory if found
+            if [[ -n "$downloads_path" ]]; then
+                echo "  • Downloads: $downloads_path"
+                ls -la "$downloads_path" 2>/dev/null | grep -E "^d" | awk '{print "    - " $9}' | head -5
+            fi
+
+            # Show media directory if found
+            if [[ -n "$media_path" ]] && [[ "$media_path" != "$existing_media" ]]; then
+                echo "  • Media: $media_path"
+                ls -la "$media_path" 2>/dev/null | grep -E "^d" | awk '{print "    - " $9}' | head -5
+            elif [[ -n "$media_path" ]] && [[ "$media_path" == "$existing_media" ]]; then
+                # If media_path is the base dir, show its contents
+                echo "  • Media Structure: $existing_media"
+                echo "    (Multiple media types detected)"
+                ls -la "$existing_media" 2>/dev/null | grep -E "^d" | grep -v "^\." | awk '{print "    - " $9}' | head -8
+            fi
+            echo ""
+            read -p "Use existing media structure? (Y/n): " -n 1 -r
+            echo ""
+            if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+                CONFIG_PATH="$data_dir/Config"
+
+                # Use detected paths or defaults
+                if [[ -n "$downloads_path" ]]; then
+                    DOWNLOADS_PATH="$downloads_path"
+                else
+                    DOWNLOADS_PATH="$data_dir/Downloads"
+                fi
+
+                if [[ -n "$media_path" ]]; then
+                    MEDIA_PATH="$media_path"
+                else
+                    MEDIA_PATH="$data_dir/Media"
+                fi
+
+                print_success "Using existing media structure: $existing_media"
+            else
+                # Use defaults
+                CONFIG_PATH="$data_dir/Config"
+                MEDIA_PATH="$data_dir/Media"
+                DOWNLOADS_PATH="$data_dir/Downloads"
+            fi
         else
-            # Use defaults
+            # No recognized media patterns, use manual configuration
             CONFIG_PATH="$data_dir/Config"
             MEDIA_PATH="$data_dir/Media"
             DOWNLOADS_PATH="$data_dir/Downloads"
