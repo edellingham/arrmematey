@@ -319,16 +319,113 @@ expand_docker_storage() {
         1)
             echo -e "${BLUE}🔧 Expanding current filesystem...${NC}"
             if [[ "$storage_driver" == "overlay2" || "$storage_driver" == "overlayfs" ]]; then
-                expand_overlay2_fs
+                echo "Choose expansion method for Overlay2/OverlayFS:"
+                echo "1) 🔧 Automated LVM expansion (recommended)"
+                echo "2) 📖 Manual guidance only"
+                echo "3) 📁 Move Docker storage"
+                read -p "Select method (1-3): " overlay2_choice
+
+                case $overlay2_choice in
+                    1)
+                        safe_expand_lvm
+                        ;;
+                    2)
+                        expand_overlay2_fs
+                        ;;
+                    3)
+                        offer_move_docker_storage
+                        ;;
+                    *)
+                        echo "Invalid choice."
+                        ;;
+                esac
             elif [[ "$storage_driver" == "devicemapper" ]]; then
-                expand_devicemapper_lvm
+                echo "Choose expansion method for Devicemapper:"
+                echo "1) 🔧 Automated LVM expansion (recommended)"
+                echo "2) 📖 Manual guidance only"
+                echo "3) 📁 Move Docker storage"
+                read -p "Select method (1-3): " devicemapper_choice
+
+                case $devicemapper_choice in
+                    1)
+                        safe_expand_lvm
+                        ;;
+                    2)
+                        expand_devicemapper_lvm
+                        ;;
+                    3)
+                        offer_move_docker_storage
+                        ;;
+                    *)
+                        echo "Invalid choice."
+                        ;;
+                esac
             elif [[ "$storage_driver" == "zfs" ]]; then
-                expand_zfs_pool
+                echo "Choose expansion method for ZFS:"
+                echo "1) 🔧 Automated ZFS expansion (recommended)"
+                echo "2) 📖 Manual guidance only"
+                echo "3) 📁 Move Docker storage"
+                read -p "Select method (1-3): " zfs_choice
+
+                case $zfs_choice in
+                    1)
+                        safe_expand_zfs
+                        ;;
+                    2)
+                        expand_zfs_pool
+                        ;;
+                    3)
+                        offer_move_docker_storage
+                        ;;
+                    *)
+                        echo "Invalid choice."
+                        ;;
+                esac
             elif [[ "$storage_driver" == "btrfs" ]]; then
-                expand_btrfs_filesystem
+                echo "Choose expansion method for Btrfs:"
+                echo "1) 🔧 Automated Btrfs expansion (recommended)"
+                echo "2) 📖 Manual guidance only"
+                echo "3) 📁 Move Docker storage"
+                read -p "Select method (1-3): " btrfs_choice
+
+                case $btrfs_choice in
+                    1)
+                        safe_expand_btrfs
+                        ;;
+                    2)
+                        expand_btrfs_filesystem
+                        ;;
+                    3)
+                        offer_move_docker_storage
+                        ;;
+                    *)
+                        echo "Invalid choice."
+                        ;;
+                esac
             else
                 echo -e "${YELLOW}Generic filesystem expansion for $storage_driver${NC}"
-                expand_generic_filesystem
+                echo "This system uses: $storage_driver"
+                echo ""
+                echo "Available expansion methods:"
+                echo "1) 🔧 Automated LVM expansion (if available)"
+                echo "2) 📖 Manual guidance only"
+                echo "3) 📁 Move Docker storage"
+                read -p "Select method (1-3): " generic_choice
+
+                case $generic_choice in
+                    1)
+                        safe_expand_lvm
+                        ;;
+                    2)
+                        expand_generic_filesystem
+                        ;;
+                    3)
+                        offer_move_docker_storage
+                        ;;
+                    *)
+                        echo "Invalid choice."
+                        ;;
+                esac
             fi
             ;;
         2)
@@ -1019,6 +1116,703 @@ show_menu() {
     read -p "Select an option (1-5): " choice
 }
 
+# Docker Storage Driver Configuration Management
+configure_docker_storage_driver() {
+    echo ""
+    echo -e "${BLUE}🔧 Docker Storage Driver Configuration${NC}"
+    echo "======================================"
+    echo ""
+
+    # Show current Docker storage configuration
+    echo -e "${BLUE}Current Docker Storage Configuration:${NC}"
+    local docker_info=$(docker info 2>/dev/null)
+    local storage_driver=$(echo "$docker_info" | grep "Storage Driver:" | awk '{print $3}')
+    local backing_fs=$(echo "$docker_info" | grep "Backing Filesystem:" | awk '{print $3}')
+    local docker_root=$(echo "$docker_info" | grep "Docker Root Dir:" | awk '{print $4}')
+
+    echo "  Storage Driver: $storage_driver"
+    echo "  Backing Filesystem: ${backing_fs:-unknown}"
+    echo "  Docker Root Dir: ${docker_root:-unknown}"
+    echo ""
+
+    # Check current Docker root usage
+    if [[ -n "$docker_root" && -d "$docker_root" ]]; then
+        local root_used=$(df "$docker_root" | tail -1 | awk '{print $3}')
+        local root_available=$(df "$docker_root" | tail -1 | awk '{print $4}')
+        local root_total=$(df "$docker_root" | tail -1 | awk '{print $2}')
+        echo -e "${BLUE}Docker Root Usage:${NC}"
+        echo "  Total: $(echo $root_total | numfmt --to=iec)"
+        echo "  Used:  $(echo $root_used | numfmt --to=iec)"
+        echo "  Free:  $(echo $root_available | numfmt --to=iec)"
+        echo ""
+
+        # Check overlay2 usage if applicable
+        if [[ "$storage_driver" == "overlay2" || "$storage_driver" == "overlayfs" ]]; then
+            echo -e "${BLUE}Overlay2 Layer Management:${NC}"
+            local overlay_count=$(find "$docker_root/overlay2" -maxdepth 1 -type d 2>/dev/null | wc -l)
+            local overlay_usage=$(du -sh "$docker_root/overlay2" 2>/dev/null | awk '{print $1}')
+            echo "  Layers: $((overlay_count - 1)) directories"
+            echo "  Usage: $overlay_usage"
+            echo ""
+        fi
+    fi
+
+    echo -e "${CYAN}Docker Storage Configuration Options:${NC}"
+    echo ""
+    echo "1) 🔧 Increase container writable layer size limits"
+    echo "2) 🧹 Clean unused image layers and volumes"
+    echo "3) 📁 Expand Docker root directory to more space"
+    echo "4) ⚙️  Change storage driver (advanced)"
+    echo "5) 📊 Detailed storage analysis"
+    echo "6) 🔄 Return to storage management menu"
+    echo ""
+    read -p "Select option (1-6): " driver_choice
+
+    case $driver_choice in
+        1)
+            configure_container_size_limits
+            ;;
+        2)
+            perform_docker_cleanup
+            ;;
+        3)
+            expand_docker_root_directory
+            ;;
+        4)
+            change_storage_driver
+            ;;
+        5)
+            detailed_storage_analysis
+            ;;
+        6)
+            return
+            ;;
+        *)
+            echo -e "${RED}Invalid choice${NC}"
+            ;;
+    esac
+
+    echo ""
+    read -p "Press Enter to return to storage management menu..."
+}
+
+# Configure container writable layer size limits
+configure_container_size_limits() {
+    echo ""
+    echo -e "${BLUE}🔧 Container Writable Layer Size Limits${NC}"
+    echo "========================================"
+    echo ""
+
+    local storage_driver=$(docker info 2>/dev/null | grep "Storage Driver:" | awk '{print $3}')
+    echo -e "${BLUE}Current storage driver: $storage_driver${NC}"
+    echo ""
+
+    # Check which drivers support size limits
+    case $storage_driver in
+        "overlay2"|"overlayfs")
+            echo -e "${BLUE}Overlay2/OverlayFS Size Configuration:${NC}"
+            echo "Current container size limits can be set per-container or globally."
+            echo ""
+            echo "Global size limit for new containers:"
+            echo "  Current: Often defaults to unlimited (depends on backing filesystem)"
+            echo "  Recommended: 10G-50G for most use cases"
+            echo ""
+            echo "⚠️  Changing this requires Docker daemon restart!"
+            echo ""
+            read -p "Would you like to configure overlay2 size limits? (yes/NO): " configure_overlay
+
+            if [[ "$configure_overlay" == "yes" ]]; then
+                echo ""
+                echo -e "${YELLOW}Available overlay2 size options:${NC}"
+                echo "1) Set global size limit (e.g., 20G per container)"
+                echo "2) Show current daemon.json configuration"
+                echo "3) Set per-container size limit on next run"
+                echo ""
+                read -p "Select option (1-3): " overlay_choice
+
+                case $overlay_choice in
+                    1)
+                        configure_overlay2_global_size
+                        ;;
+                    2)
+                        check_current_daemon_config
+                        ;;
+                    3)
+                        show_per_container_size_example
+                        ;;
+                    *)
+                        echo "Invalid choice."
+                        ;;
+                esac
+            fi
+            ;;
+        "vfs")
+            echo -e "${BLUE}VFS Storage Driver Size Configuration:${NC}"
+            echo "VFS supports global size limits. Example configuration:"
+            echo ""
+            echo '{"storage-driver": "vfs", "storage-opts": ["size=256M"]}'
+            echo ""
+            echo "This sets 256MB limit for each container writable layer."
+            ;;
+        "zfs")
+            echo -e "${BLUE}ZFS Storage Driver Size Configuration:${NC}"
+            echo "ZFS supports container size quotas. Example:"
+            echo ""
+            echo '{"storage-driver": "zfs", "storage-opts": ["size=256M"]}'
+            echo ""
+            echo "This sets 256MB limit for each container writable layer."
+            ;;
+        *)
+            echo -e "${YELLOW}⚠️  Storage driver $storage_driver may not support size limits${NC}"
+            echo "Check Docker documentation for $storage_driver size configuration."
+            ;;
+    esac
+}
+
+# Configure overlay2 global size limit
+configure_overlay2_global_size() {
+    echo ""
+    echo -e "${BLUE}🔧 Configure Overlay2 Global Size Limit${NC}"
+    echo "=========================================="
+    echo ""
+
+    echo "Current Docker daemon.json:"
+    if [[ -f "/etc/docker/daemon.json" ]]; then
+        cat /etc/docker/daemon.json 2>/dev/null || echo "  (empty or unreadable)"
+    else
+        echo "  (no daemon.json file exists)"
+    fi
+    echo ""
+
+    echo -e "${YELLOW}Recommended overlay2 size configuration:${NC}"
+    echo '{"storage-driver": "overlay2", "storage-opts": ["overlay2.size=20G"]}'
+    echo ""
+    echo "This sets a 20GB limit for each container writable layer."
+    echo "Choose appropriate size for your use case:"
+    echo "  - 10G: For lightweight containers"
+    echo "  - 20G: For medium containers (recommended)"
+    echo "  - 50G: For containers with large data volumes"
+    echo ""
+
+    read -p "Enter size limit (e.g., 20G) or press Enter to skip: " size_limit
+
+    if [[ -n "$size_limit" ]]; then
+        echo ""
+        echo -e "${RED}⚠️  This will modify /etc/docker/daemon.json${NC}"
+        echo -e "${RED}⚠️  Docker daemon must be restarted for changes to take effect${NC}"
+        read -p "Proceed with configuration? (yes/NO): " confirm_config
+
+        if [[ "$confirm_config" == "yes" ]]; then
+            backup_and_configure_daemon_json "$size_limit"
+        fi
+    fi
+}
+
+# Backup and configure daemon.json
+backup_and_configure_daemon_json() {
+    local size_limit="$1"
+    local config_dir="/etc/docker"
+
+    echo ""
+    echo -e "${BLUE}🔧 Configuring Docker daemon.json...${NC}"
+
+    # Create backup
+    if [[ -f "$config_dir/daemon.json" ]]; then
+        sudo cp "$config_dir/daemon.json" "$config_dir/daemon.json.backup.$(date +%Y%m%d-%H%M%S)"
+        echo -e "${GREEN}✅ Backed up existing daemon.json${NC}"
+    fi
+
+    # Create or update daemon.json
+    sudo tee "$config_dir/daemon.json" > /dev/null << EOF
+{
+  "storage-driver": "overlay2",
+  "storage-opts": [
+    "overlay2.size=$size_limit"
+  ]
+}
+EOF
+
+    if [[ $? -eq 0 ]]; then
+        echo -e "${GREEN}✅ Updated daemon.json successfully${NC}"
+        echo ""
+        echo -e "${YELLOW}To apply changes, run:${NC}"
+        echo "sudo systemctl restart docker"
+        echo ""
+        read -p "Restart Docker daemon now? (yes/NO): " restart_choice
+
+        if [[ "$restart_choice" == "yes" ]]; then
+            echo "Restarting Docker daemon..."
+            if sudo systemctl restart docker && sleep 5 && docker ps &>/dev/null; then
+                echo -e "${GREEN}✅ Docker daemon restarted successfully${NC}"
+                echo "New container size limit: $size_limit per container"
+            else
+                echo -e "${RED}❌ Docker daemon restart failed${NC}"
+                echo "Restoring backup..."
+                sudo cp "$config_dir/daemon.json.backup.$(date +%Y%m%d-%H%M%S)" "$config_dir/daemon.json" 2>/dev/null || true
+                sudo systemctl restart docker 2>/dev/null || echo "Manual intervention required"
+            fi
+        fi
+    else
+        echo -e "${RED}❌ Failed to update daemon.json${NC}"
+    fi
+}
+
+# Expand Docker root directory to different filesystem
+expand_docker_root_directory() {
+    echo ""
+    echo -e "${BLUE}📁 Expand Docker Root Directory${NC}"
+    echo "================================="
+    echo ""
+
+    local current_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
+    echo -e "${BLUE}Current Docker root: $current_root${NC}"
+
+    echo ""
+    echo "This will move Docker to a location with more space."
+    echo "Available locations with sufficient space:"
+    echo ""
+
+    local available_locations=()
+    local location_counter=1
+
+    # Check common mount points
+    for mount_point in "$HOME" "/opt" "/usr/local" "/var/lib" "/tmp"; do
+        if [[ -d "$mount_point" && "$mount_point" != "$current_root" ]]; then
+            local mount_available=$(df "$mount_point" | tail -1 | awk '{print $4}')
+            local mount_available_gb=$((mount_available / 1024 / 1024))
+            if [[ $mount_available_gb -gt 50 ]]; then
+                echo "  $location_counter) $mount_point (${mount_available_gb}GB free)"
+                available_locations+=("$mount_point")
+                ((location_counter++))
+            fi
+        fi
+    done
+
+    if [[ ${#available_locations[@]} -eq 0 ]]; then
+        echo -e "${RED}❌ No suitable locations found with 50GB+ free space${NC}"
+        echo "Consider:"
+        echo "  - Adding a new disk and mounting it"
+        echo "  - Creating a symbolic link to a larger filesystem"
+        echo "  - Expanding the current filesystem"
+        return 1
+    fi
+
+    echo ""
+    read -p "Select location (1-${#available_locations[@]}) or press Enter to cancel: " location_choice
+
+    if [[ -z "$location_choice" ]] || ! [[ "$location_choice" =~ ^[0-9]+$ ]] || [[ $location_choice -lt 1 ]] || [[ $location_choice -gt ${#available_locations[@]} ]]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+
+    local selected_location="${available_locations[$((location_choice - 1))]}"
+    move_docker_to_location "$selected_location"
+}
+
+# Move Docker to specific location
+move_docker_to_location() {
+    local new_location="$1"
+    local current_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
+    local new_docker_root="$new_location/docker-data"
+    local backup_name="docker-backup-$(date +%Y%m%d-%H%M%S)"
+
+    echo ""
+    echo -e "${YELLOW}Moving Docker from ${current_root} to ${new_docker_root}${NC}"
+    echo -e "${YELLOW}Creating backup at: ${current_root}.${backup_name}${NC}"
+    echo ""
+
+    read -p "Continue? This will stop Docker and may take several minutes. (yes/NO): " confirm_move
+
+    if [[ "$confirm_move" != "yes" ]]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+
+    echo ""
+    echo "🛑 Stopping Docker daemon..."
+    sudo systemctl stop docker
+
+    echo "📦 Creating backup..."
+    sudo mv "$current_root" "$current_root.$backup_name"
+
+    echo "📁 Creating new Docker directory..."
+    sudo mkdir -p "$new_docker_root"
+    sudo chmod 700 "$new_docker_root"
+
+    echo "⚙️ Updating Docker daemon configuration..."
+    sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "data-root": "$new_docker_root"
+}
+EOF
+
+    echo "🚀 Starting Docker daemon..."
+    sudo systemctl start docker
+    sleep 10
+
+    echo "🔍 Verifying Docker is working..."
+    if docker ps &>/dev/null; then
+        echo -e "${GREEN}✅ Docker moved successfully!${NC}"
+        local new_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
+        echo -e "${GREEN}✅ New Docker root: ${new_root}${NC}"
+        echo -e "${BLUE}Backup location: ${current_root}.${backup_name}${NC}"
+        echo ""
+        echo -e "${GREEN}You can safely remove the backup once everything is working:${NC}"
+        echo "sudo rm -rf ${current_root}.${backup_name}"
+    else
+        echo -e "${RED}❌ Docker failed to start after move${NC}"
+        echo "🛠️ Restoring from backup..."
+        sudo rm -rf "$current_root"
+        sudo mv "$current_root.$backup_name" "$current_root"
+        sudo rm -f /etc/docker/daemon.json
+        sudo systemctl start docker
+        echo "🔄 Docker restored to original location"
+        return 1
+    fi
+}
+
+# Check current daemon.json configuration
+check_current_daemon_config() {
+    echo ""
+    echo -e "${BLUE}Current Docker daemon.json Configuration:${NC}"
+    if [[ -f "/etc/docker/daemon.json" ]]; then
+        cat /etc/docker/daemon.json
+    else
+        echo "No daemon.json file exists. Using default configuration."
+    fi
+    echo ""
+    echo -e "${BLUE}Active Docker storage settings:${NC}"
+    docker info | grep -E "(Storage Driver|Backing Filesystem|Docker Root Dir)"
+}
+
+# Show per-container size limit example
+show_per_container_size_example() {
+    echo ""
+    echo -e "${BLUE}🔧 Per-Container Size Limit Example${NC}"
+    echo "====================================="
+    echo ""
+    echo "Set size limit when running a container:"
+    echo ""
+    echo "docker run --storage-opt size=20G your-image"
+    echo ""
+    echo "Or in docker-compose.yml:"
+    echo ""
+    echo "services:"
+    echo "  your-service:"
+    echo "    image: your-image"
+    echo "    command: your-command"
+    echo "    storage_opt:"
+    echo "      - size=20G"
+    echo ""
+    echo "This sets a 20GB limit for that specific container."
+}
+
+# Detailed storage analysis
+detailed_storage_analysis() {
+    echo ""
+    echo -e "${BLUE}📊 Detailed Docker Storage Analysis${NC}"
+    echo "====================================="
+    echo ""
+
+    local docker_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
+
+    if [[ -z "$docker_root" ]]; then
+        echo -e "${RED}❌ Could not determine Docker root directory${NC}"
+        return 1
+    fi
+
+    echo -e "${BLUE}Docker Storage Breakdown:${NC}"
+
+    # Check each storage component
+    local components=("overlay2" "image" "containers" "volumes" "network")
+
+    for component in "${components[@]}"; do
+        local component_path="$docker_root/$component"
+        if [[ -d "$component_path" ]]; then
+            local component_size=$(du -sh "$component_path" 2>/dev/null | awk '{print $1}')
+            local component_count=$(find "$component_path" -maxdepth 1 -type d 2>/dev/null | wc -l)
+            echo "  ${component}: $component_size ($((component_count - 1)) items)"
+        else
+            echo "  ${component}: not found"
+        fi
+    done
+
+    echo ""
+    echo -e "${BLUE}Container Breakdown:${NC}"
+    if command -v docker ps &>/dev/null; then
+        local running_containers=$(docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" 2>/dev/null || echo "Could not get container info")
+        echo "$running_containers"
+    fi
+
+    echo ""
+    echo -e "${BLUE}Image Breakdown:${NC}"
+    if command -v docker images &>/dev/null; then
+        local images=$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" 2>/dev/null || echo "Could not get image info")
+        echo "$images"
+    fi
+
+    echo ""
+    echo -e "${BLUE}Largest Docker Directories:${NC}"
+    echo "Finding largest directories in $docker_root..."
+    echo ""
+    sudo du -h --max-depth=2 "$docker_root" 2>/dev/null | sort -hr | head -10
+}
+
+# Change storage driver (advanced)
+change_storage_driver() {
+    echo ""
+    echo -e "${BLUE}⚙️  Change Docker Storage Driver (Advanced)${NC}"
+    echo "=============================================="
+    echo ""
+
+    local current_driver=$(docker info 2>/dev/null | grep "Storage Driver:" | awk '{print $3}')
+    echo -e "${BLUE}Current storage driver: $current_driver${NC}"
+    echo ""
+
+    echo -e "${RED}⚠️  WARNING: Changing storage drivers is dangerous!${NC}"
+    echo -e "${RED}⚠️  This will delete all Docker data!${NC}"
+    echo ""
+    echo "Storage drivers available:"
+    echo "  overlay2: Default, good performance, XFS recommended"
+    echo "  devicemapper: Good performance, requires LVM setup"
+    echo "  zfs: Good performance, requires ZFS setup"
+    echo "  btrfs: Good performance, requires Btrfs filesystem"
+    echo "  vfs: Simple but uses more space"
+    echo ""
+
+    read -p "Type 'YES-I-WANT-TO-LOSE-ALL-DOCKER-DATA' to continue: " confirm_change
+
+    if [[ "$confirm_change" != "YES-I-WANT-TO-LOSE-ALL-DOCKER-DATA" ]]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+
+    echo ""
+    echo "Select new storage driver:"
+    echo "1) overlay2 (recommended)"
+    echo "2) devicemapper"
+    echo "3) zfs"
+    echo "4) btrfs"
+    echo "5) vfs"
+    echo ""
+    read -p "Select driver (1-5): " driver_selection
+
+    case $driver_selection in
+        1)
+            change_to_overlay2
+            ;;
+        2)
+            change_to_devicemapper
+            ;;
+        3)
+            change_to_zfs
+            ;;
+        4)
+            change_to_btrfs
+            ;;
+        5)
+            change_to_vfs
+            ;;
+        *)
+            echo "Invalid selection."
+            ;;
+    esac
+}
+
+# Change to overlay2 driver
+change_to_overlay2() {
+    echo ""
+    echo -e "${BLUE}Changing to overlay2 storage driver${NC}"
+    echo ""
+
+    echo "Creating daemon.json configuration..."
+    sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "storage-driver": "overlay2"
+}
+EOF
+
+    echo "Docker will use overlay2 on next restart."
+    echo "All existing Docker data will be lost!"
+    echo ""
+    read -p "Restart Docker now? (yes/NO): " restart_choice
+
+    if [[ "$restart_choice" == "yes" ]]; then
+        sudo systemctl restart docker
+        echo "Docker restarted with overlay2 driver."
+    fi
+}
+
+# Change to devicemapper driver
+change_to_devicemapper() {
+    echo ""
+    echo -e "${BLUE}Changing to devicemapper storage driver${NC}"
+    echo ""
+
+    echo "This requires LVM setup. Checking for LVM..."
+    if ! command -v vgs &>/dev/null; then
+        echo -e "${RED}❌ LVM tools not available${NC}"
+        echo "Install LVM: sudo apt install lvm2"
+        return 1
+    fi
+
+    echo "Creating devicemapper configuration..."
+    sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "storage-driver": "devicemapper",
+  "storage-opts": [
+    "dm.thinpooldev=/dev/mapper/docker-thinpool",
+    "dm.use_deferred_removal=true",
+    "dm.use_deferred_deletion=true"
+  ]
+}
+EOF
+
+    echo "Devicemapper requires thin pool setup. Manual configuration needed."
+    echo "Docker will use devicemapper on next restart."
+    echo ""
+    read -p "Restart Docker now? (yes/NO): " restart_choice
+
+    if [[ "$restart_choice" == "yes" ]]; then
+        sudo systemctl restart docker
+        echo "Docker restarted with devicemapper driver."
+    fi
+}
+
+# Change to ZFS driver
+change_to_zfs() {
+    echo ""
+    echo -e "${BLUE}Changing to ZFS storage driver${NC}"
+    echo ""
+
+    if ! command -v zpool &>/dev/null; then
+        echo -e "${RED}❌ ZFS tools not available${NC}"
+        echo "Install ZFS: sudo apt install zfsutils-linux"
+        return 1
+    fi
+
+    echo "Creating ZFS configuration..."
+    sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "storage-driver": "zfs",
+  "storage-opts": [
+    "zfs.fsname=zroot/docker"
+  ]
+}
+EOF
+
+    echo "ZFS requires filesystem setup. Manual configuration needed."
+    echo "Docker will use ZFS on next restart."
+    echo ""
+    read -p "Restart Docker now? (yes/NO): " restart_choice
+
+    if [[ "$restart_choice" == "yes" ]]; then
+        sudo systemctl restart docker
+        echo "Docker restarted with ZFS driver."
+    fi
+}
+
+# Change to Btrfs driver
+change_to_btrfs() {
+    echo ""
+    echo -e "${BLUE}Changing to Btrfs storage driver${NC}"
+    echo ""
+
+    if ! command -v btrfs &>/dev/null; then
+        echo -e "${RED}❌ Btrfs tools not available${NC}"
+        echo "Install Btrfs: sudo apt install btrfs-progs"
+        return 1
+    fi
+
+    echo "Creating Btrfs configuration..."
+    sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "storage-driver": "btrfs"
+}
+EOF
+
+    echo "Btrfs requires filesystem setup. Manual configuration needed."
+    echo "Docker will use Btrfs on next restart."
+    echo ""
+    read -p "Restart Docker now? (yes/NO): " restart_choice
+
+    if [[ "$restart_choice" == "yes" ]]; then
+        sudo systemctl restart docker
+        echo "Docker restarted with Btrfs driver."
+    fi
+}
+
+# Change to VFS driver
+change_to_vfs() {
+    echo ""
+    echo -e "${BLUE}Changing to VFS storage driver${NC}"
+    echo ""
+
+    echo "Creating VFS configuration with size limits..."
+    sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "storage-driver": "vfs",
+  "storage-opts": [
+    "size=256M"
+  ]
+}
+EOF
+
+    echo "VFS is simple but uses more disk space."
+    echo "Docker will use VFS on next restart."
+    echo ""
+    read -p "Restart Docker now? (yes/NO): " restart_choice
+
+    if [[ "$restart_choice" == "yes" ]]; then
+        sudo systemctl restart docker
+        echo "Docker restarted with VFS driver."
+    fi
+}
+
+# Expand generic filesystem
+expand_generic_filesystem() {
+    echo ""
+    echo -e "${BLUE}🔧 Generic Host Filesystem Expansion${NC}"
+    echo "======================================"
+    echo ""
+
+    local docker_root=$(docker info 2>/dev/null | grep "Docker Root Dir:" | awk '{print $4}')
+    if [[ -n "$docker_root" ]]; then
+        local host_filesystem=$(df "$docker_root" | tail -1 | awk '{print $1}')
+        local host_mount=$(df "$docker_root" | tail -1 | awk '{print $6}')
+
+        echo -e "${BLUE}Host filesystem for Docker:${NC}"
+        echo "  Device: $host_filesystem"
+        echo "  Mount: $host_mount"
+        echo ""
+
+        echo "General filesystem expansion approaches:"
+        echo ""
+        echo "1. LVM-based systems:"
+        echo "   sudo vgdisplay     # Check available space"
+        echo "   sudo lvextend -l+100%FREE /dev/mapper/root-lv"
+        echo "   sudo resize2fs /dev/mapper/root-lv     # ext4"
+        echo "   sudo xfs_growfs /                     # XFS"
+        echo ""
+        echo "2. Direct disk partitions:"
+        echo "   sudo fdisk -l           # Check unallocated space"
+        echo "   sudo fdisk /dev/sdX     # Create new partition"
+        echo "   sudo mkfs.ext4 /dev/sdX1   # Format new partition"
+        echo "   sudo mkdir /mnt/new-docker"
+        echo "   sudo mount /dev/sdX1 /mnt/new-docker"
+        echo ""
+        echo "3. Move Docker data:"
+        echo "   This script can move Docker to a larger filesystem"
+        echo ""
+
+        echo -e "${YELLOW}Recommended: Use this script's Docker root expansion feature${NC}"
+        echo "Go to: Storage Management → Expand Docker Storage → Move Docker Storage"
+    fi
+
+    echo ""
+    read -p "Press Enter to return to storage management menu..."
+}
+
 # Storage management menu
 show_storage_menu() {
     echo ""
@@ -1053,8 +1847,8 @@ show_storage_menu() {
     echo -e "${CYAN}Storage Management Options:${NC}"
     echo ""
     echo "1) 📊 Check Storage Status"
-    echo "2) 🔧 Expand Docker Storage"
-    echo "3) 📦 Move Docker Storage"
+    echo "2) 🔧 Configure Docker Storage Drivers"
+    echo "3) 📦 Move Docker to Different Location"
     echo "4) 🧹 Clean Docker Storage"
     echo "5) 🔄 Return to Main Menu"
     echo ""
@@ -1068,13 +1862,13 @@ show_storage_menu() {
             show_storage_menu
             ;;
         2)
-            expand_docker_storage
+            configure_docker_storage_driver
             echo ""
             read -p "Press Enter to continue..."
             show_storage_menu
             ;;
         3)
-            offer_move_docker_storage
+            expand_docker_root_directory
             echo ""
             read -p "Press Enter to continue..."
             show_storage_menu
