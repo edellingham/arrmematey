@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.5.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.6.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                    ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -237,9 +237,14 @@ install_docker() {
 
     print_info "Running Docker installation (this may take 5-10 minutes)..."
     print_info "⏳ Please be patient - Docker installation can take several minutes..."
-    start_spinner "Installing Docker engine"
+    print_info "You will see package installation progress below..."
+    echo ""
+
+    # Show Docker installation output - shows packages being installed
     sh /tmp/get-docker.sh
-    stop_spinner
+
+    echo ""
+    print_success "Docker installed successfully"
 
     rm /tmp/get-docker.sh
 
@@ -917,6 +922,12 @@ show_symlink_status() {
         ls -lah /data/arrmematey/Downloads/ 2>/dev/null | grep "^l" | awk '{print "  " $0}' || echo "  No symlinks found"
         echo ""
     fi
+
+    echo -e "${YELLOW}💡 Tip: You can monitor progress in real-time:${NC}"
+    echo "  • Docker shows progress bars during image downloads"
+    echo "  • You'll see package names during installation"
+    echo "  • Spinner indicates activity during other operations"
+    echo ""
 }
 
 ###############################################################################
@@ -934,12 +945,16 @@ start_services() {
     # Pull latest images
     print_info "Pulling Docker images (this will take 5-10 minutes)..."
     print_info "⏳ Downloading all container images - please be patient..."
-    start_spinner "Pulling Docker images"
-    if ! docker-compose pull 2>&1 | grep -q "Pulling from"; then
-        stop_spinner
-        error_exit "Failed to pull Docker images"
+    print_info "Progress bars will show download status..."
+    echo ""
+
+    # Show Docker pull progress - this includes progress bars!
+    if ! docker-compose pull 2>&1; then
+        print_error "Failed to pull Docker images"
+        exit 1
     fi
-    stop_spinner
+
+    echo ""
     print_success "Docker images pulled"
 
     # Build UI
