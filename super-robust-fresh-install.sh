@@ -231,9 +231,14 @@ main_install() {
 
 # Check if running as root
 if [[ $EUID -eq 0 ]]; then
-    echo -e "${RED}❌ This script should not be run as root${NC}"
-    echo "Please run: sudo bash $0"
-    exit 1
+    echo -e "${BLUE}This script requires sudo access for system packages${NC}"
+    echo "It will create a sudo user if needed and handle permissions properly."
+    echo ""
+    read -p "Continue with installation? (yes/NO): " continue_install
+
+if [[ "$continue_install" != "yes" ]]; then
+    echo "Installation cancelled."
+    exit 0
 fi
 
 # Check if Docker is already installed
