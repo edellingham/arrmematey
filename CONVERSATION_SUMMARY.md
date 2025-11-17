@@ -190,10 +190,32 @@ docker compose pull 2>&1
 
 ---
 
+### 9. Gluetun Internal Healthcheck Conflict (v2.14.5)
+**Error**: `dependency failed to start: container gluetun is unhealthy`
+
+**Root Cause**: Gluetun has its own internal healthcheck that targets cloudflare.com:443 during startup. During VPN initialization, this check fails before DNS is fully ready or VPN is fully connected, marking the container as "unhealthy" despite working perfectly.
+
+**Investigation**:
+- Logs showed successful VPN connection: "Initialization Sequence Completed"
+- Logs showed valid public IP: "Public IP address is 81.17.16.78 (Switzerland)"
+- Docker Compose still failed with unhealthy status due to gluetun's internal healthcheck
+
+**Fix**: Added `HEALTH_STATUS=off` to disable gluetun's internal healthcheck
+
+**Configuration**:
+```yaml
+environment:
+  - HEALTH_STATUS=off
+```
+
+**Impact**: Eliminates false "unhealthy" status during VPN initialization phase, allowing all services to start successfully
+
+---
+
 ## File Changes Summary
 
 ### 1. install-arrmematey.sh (Main Installer)
-**Version**: 2.14.0 → 2.14.1
+**Version**: 2.14.0 → 2.14.5
 
 **Changes**:
 - Added interactive VPN type selection (OpenVPN/Wireguard)
@@ -201,6 +223,7 @@ docker compose pull 2>&1
 - Sets `WIREGUARD_PRIVATE_KEY` when Wireguard selected
 - Improved progress visibility for npm install and Docker builds
 - Updated gluetun healthcheck to use ifconfig.io
+- Added `HEALTH_STATUS=off` to disable gluetun's internal healthcheck
 
 **Key Features**:
 - Interactive Mullvad account ID input
@@ -216,8 +239,10 @@ docker compose pull 2>&1
   - `VPN_TYPE=${VPN_TYPE:-openvpn}`
   - `OPENVPN_USER=${OPENVPN_USER:-${MULLVAD_USER:-${MULLVAD_ACCOUNT_ID}}}`
   - `WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY:-${MULLVAD_PRIVATE_KEY:-}}`
-- DNS: `DNS_ADDRESS=1.1.1.1` (single address format)
-- Healthcheck: `https://ifconfig.io`
+- DNS: Removed `DNS_ADDRESS` to use gluetun's internal DNS (127.0.0.1)
+- Healthcheck: `https://ifconfig.io` with reduced timeout (60s start_period, 3 retries)
+- Added `HEALTH_STATUS=off` to disable gluetun's internal healthcheck
+- Added `SHADOWSOCKS=off` for security
 - Added Emby service with proper volume mounts
 - Management UI port: 8787 (was 8080)
 
@@ -229,19 +254,21 @@ docker compose pull 2>&1
 - Added Emby service configuration
 - Port management: Management UI on 8787
 - Corrected gluetun healthcheck endpoint
+- Added `HEALTH_STATUS=off` and `SHADOWSOCKS=off` to gluetun configuration
 
 **Purpose**: Simplified installation for Debian 13 systems with Docker setup
 
 ---
 
 ### 4. install.sh (Menu-based Installer)
-**Version**: 2.1.0 → 2.1.1
+**Version**: 2.1.0 → 2.1.5
 
 **Changes**:
 - Updated VPN configuration with `OPENVPN_USER`
 - Management UI port change: 8080 → 8787
 - Corrected gluetun healthcheck endpoint
 - Enhanced storage management features
+- Added `HEALTH_STATUS=off` to disable gluetun's internal healthcheck
 
 **Features**:
 - Interactive menu with multiple options
@@ -362,6 +389,7 @@ docker-compose --profile full up -d
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.14.5 | 2025-11-16 | Fix gluetun internal healthcheck conflict |
 | 2.14.0 | 2025-11-16 | VPN fixes: DNS, auth variables, healthcheck |
 | 2.13.1 | 2025-11-16 | Port conflict resolution (8080→8787) |
 | 2.13.0 | 2025-11-16 | Added VPN type selection, auto-config |
@@ -442,6 +470,9 @@ docker exec arrstack-ui ls -la /var/run/docker.sock
 
 ### Issue: "ExitCode: 8" on healthcheck
 **Solution**: Use `https://ifconfig.io` endpoint (ifconfig.me blocked by VPN)
+
+### Issue: "dependency failed to start: container gluetun is unhealthy"
+**Solution**: Add `HEALTH_STATUS=off` to disable gluetun's internal healthcheck that conflicts with Docker Compose healthcheck during startup
 
 ### Issue: "docker-compose: command not found"
 **Solution**: Use `docker compose` (Docker v2 syntax)
