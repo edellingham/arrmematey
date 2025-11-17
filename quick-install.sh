@@ -83,7 +83,7 @@ DOWNLOADS_PATH=/data/downloads
 CONFIG_PATH=/data/config
 
 # Management UI
-MANAGEMENT_UI_PORT=8080
+MANAGEMENT_UI_PORT=8787
 
 # Default service ports
 PROWLARR_PORT=9696

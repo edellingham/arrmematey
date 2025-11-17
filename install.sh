@@ -771,7 +771,7 @@ DOWNLOADS_PATH=/data/downloads
 CONFIG_PATH=/data/config
 
 # Management UI
-MANAGEMENT_UI_PORT=8080
+MANAGEMENT_UI_PORT=8787
 
 # Service ports
 PROWLARR_PORT=9696
@@ -820,13 +820,14 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${MULLVAD_ACCOUNT_ID}
+      - MULLVAD_USER=${MULLVAD_ACCOUNT_ID}
       - SERVER_Countries=${MULLVAD_COUNTRY:-us}
       - SERVER_Cities=${MULLVAD_CITY:-ny}
       - TZ=${TZ:-UTC}
       - FIREWALL=on
       - FIREWALL_VPN_INPUT_PORTS=${SONARR_PORT:-8989},${RADARR_PORT:-7878},${LIDARR_PORT:-8686},${SABNZBD_PORT:-8080},${QBITTORRENT_PORT:-8081}
-      - DNS_PLAINTEXT_ADDRESS=1.1.1.1,1.0.0.1
+      - DNS_SERVER=1.1.1.1
+      - DNS_ADDRESS=1.1.1.1
       - AUTOCONNECT=true
       - KILLSWITCH=true
     volumes:

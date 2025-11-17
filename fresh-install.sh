@@ -96,8 +96,10 @@ PUID=$(id -u)
 PGID=$(id -g)
 TZ=UTC
 
-# VPN Configuration
+# Mullvad VPN Configuration (REQUIRED)
 MULLVAD_ACCOUNT_ID=your_mullvad_id_here
+MULLVAD_COUNTRY=us
+MULLVAD_CITY=ny
 
 # Docker volume paths
 MEDIA_PATH=/data/media
@@ -105,7 +107,7 @@ DOWNLOADS_PATH=/data/downloads
 CONFIG_PATH=/data/config
 
 # Management UI
-MANAGEMENT_UI_PORT=8080
+MANAGEMENT_UI_PORT=8787
 
 # Service ports
 PROWLARR_PORT=9696
@@ -115,6 +117,11 @@ LIDARR_PORT=8686
 SABNZBD_PORT=8080
 QBITTORRENT_PORT=8081
 JELLYSEERR_PORT=5055
+EMBY_PORT=8096
+
+# Service Passwords (change these!)
+SABNZBD_PASSWORD=arrmematey_secure
+JELLYSEERR_PASSWORD=arrmematey_secure
 
 # Quality profile
 QUALITY_PROFILE=standard
@@ -147,13 +154,14 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${MULLVAD_ACCOUNT_ID}
+      - MULLVAD_USER=${MULLVAD_ACCOUNT_ID}
       - SERVER_Countries=${MULLVAD_COUNTRY:-us}
       - SERVER_Cities=${MULLVAD_CITY:-ny}
       - TZ=${TZ:-UTC}
       - FIREWALL=on
       - FIREWALL_VPN_INPUT_PORTS=${SONARR_PORT:-8989},${RADARR_PORT:-7878},${LIDARR_PORT:-8686},${SABNZBD_PORT:-8080},${QBITTORRENT_PORT:-8081}
-      - DNS_PLAINTEXT_ADDRESS=1.1.1.1,1.0.0.1
+      - DNS_SERVER=1.1.1.1
+      - DNS_ADDRESS=1.1.1.1
       - AUTOCONNECT=true
       - KILLSWITCH=true
     volumes:
@@ -285,6 +293,22 @@ services:
       - ${JELLYSEERR_PORT:-5055}:5055
     restart: unless-stopped
 
+  emby:
+    image: linuxserver/emby:latest
+    container_name: emby
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-UTC}
+    volumes:
+      - emby-config:/config
+      - sonarr-media:/data/media/series:ro
+      - radarr-media:/data/media/movies:ro
+      - lidarr-media:/data/media/music:ro
+    ports:
+      - ${EMBY_PORT:-8096}:8096
+    restart: unless-stopped
+
 volumes:
   gluetun-config:
   prowlarr-config:
@@ -294,6 +318,7 @@ volumes:
   sabnzbd-config:
   qbittorrent-config:
   jellyseerr-config:
+  emby-config:
   sonarr-media:
   radarr-media:
   lidarr-media:
@@ -310,7 +335,7 @@ echo -e "${GREEN}✅ Data directories created${NC}"
 
 echo ""
 echo -e "${BLUE}[STEP 9/4]${NC} Starting Arrmematey services..."
-docker-compose up -d
+docker compose up -d
 
 echo ""
 echo -e "${GREEN}🎉 Arrmematey Installation Complete!${NC}"
