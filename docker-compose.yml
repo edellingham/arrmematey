@@ -30,9 +30,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -s https://ifconfig.io >/dev/null && exit 0 || exit 1"]
       interval: 30s
-      timeout: 15s
-      retries: 10
-      start_period: 120s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Prowlarr - Indexer Manager
   prowlarr:

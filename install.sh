@@ -12,7 +12,7 @@
 set -e
 
 # Script version information
-SCRIPT_VERSION="2.1.3"
+SCRIPT_VERSION="2.1.4"
 SCRIPT_DATE="2024-11-15"
 
 # Check if running the right version
