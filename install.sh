@@ -12,7 +12,7 @@
 set -e
 
 # Script version information
-SCRIPT_VERSION="2.1.1"
+SCRIPT_VERSION="2.1.2"
 SCRIPT_DATE="2024-11-15"
 
 # Check if running the right version
@@ -844,7 +844,7 @@ services:
       - ${QBITTORRENT_PORT:-8081}:8081
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "https://ifconfig.io"]
+      test: ["CMD-SHELL", "curl -s https://ifconfig.io >/dev/null && exit 0 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -177,7 +177,7 @@ services:
       - ${QBITTORRENT_PORT:-8081}:8081
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "https://ifconfig.io"]
+      test: ["CMD-SHELL", "curl -s https://ifconfig.io >/dev/null && exit 0 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
