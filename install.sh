@@ -12,8 +12,8 @@
 set -e
 
 # Script version information
-SCRIPT_VERSION="2.1.4"
-SCRIPT_DATE="2024-11-15"
+SCRIPT_VERSION="2.1.5"
+SCRIPT_DATE="2025-11-16"
 
 # Check if running the right version
 if [[ -z "$SCRIPT_VERSION" || -z "$SCRIPT_DATE" ]]; then
@@ -833,6 +833,8 @@ services:
       - FIREWALL_VPN_INPUT_PORTS=${SONARR_PORT:-8989},${RADARR_PORT:-7878},${LIDARR_PORT:-8686},${SABNZBD_PORT:-8080},${QBITTORRENT_PORT:-8081}
       - AUTOCONNECT=true
       - KILLSWITCH=true
+      - SHADOWSOCKS=off
+      - HEALTH_STATUS=off
     volumes:
       - gluetun-config:/config
     ports:

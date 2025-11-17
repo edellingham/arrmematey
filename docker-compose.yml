@@ -18,6 +18,7 @@ services:
       - AUTOCONNECT=true
       - KILLSWITCH=true
       - SHADOWSOCKS=off
+      - HEALTH_STATUS=off
     volumes:
       - gluetun-config:/config
     ports:

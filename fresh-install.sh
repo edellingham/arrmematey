@@ -166,6 +166,8 @@ services:
       - FIREWALL_VPN_INPUT_PORTS=${SONARR_PORT:-8989},${RADARR_PORT:-7878},${LIDARR_PORT:-8686},${SABNZBD_PORT:-8080},${QBITTORRENT_PORT:-8081}
       - AUTOCONNECT=true
       - KILLSWITCH=true
+      - SHADOWSOCKS=off
+      - HEALTH_STATUS=off
     volumes:
       - gluetun-config:/config
     ports:
