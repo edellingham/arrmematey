@@ -346,6 +346,7 @@ PGID=$current_gid
 TZ=UTC
 
 # Mullvad VPN Configuration
+MULLVAD_USER=
 MULLVAD_ACCOUNT_ID=
 MULLVAD_COUNTRY=us
 MULLVAD_CITY=ny
@@ -519,6 +520,9 @@ configure_arrmematey() {
     echo -n "Mullvad Account ID (required): "
     read -r MULLVAD_ACCOUNT_ID
 
+    # Set both MULLVAD_USER and MULLVAD_ACCOUNT_ID (for compatibility)
+    MULLVAD_USER="$MULLVAD_ACCOUNT_ID"
+
     if [[ -z "$MULLVAD_ACCOUNT_ID" ]]; then
         error_exit "Mullvad Account ID is required for VPN functionality"
     fi
@@ -661,6 +665,7 @@ configure_arrmematey() {
     # Update .env file
     print_info "Updating configuration..."
 
+    sed -i "s|MULLVAD_USER=.*|MULLVAD_USER=$MULLVAD_ACCOUNT_ID|" "$env_file"
     sed -i "s|MULLVAD_ACCOUNT_ID=.*|MULLVAD_ACCOUNT_ID=$MULLVAD_ACCOUNT_ID|" "$env_file"
     sed -i "s|MULLVAD_COUNTRY=.*|MULLVAD_COUNTRY=$MULLVAD_COUNTRY|" "$env_file"
     sed -i "s|MULLVAD_CITY=.*|MULLVAD_CITY=$MULLVAD_CITY|" "$env_file"
