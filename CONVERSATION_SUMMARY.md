@@ -126,8 +126,10 @@ test: ["CMD", "wget", "--spider", "-q", "http://ifconfig.me"]
 
 **Updated Healthcheck**:
 ```yaml
-test: ["CMD", "wget", "--spider", "-q", "https://ifconfig.io"]
+test: ["CMD-SHELL", "curl -s https://ifconfig.io >/dev/null && exit 0 || exit 1"]
 ```
+
+**Note**: Using `curl` instead of `wget --spider` because `ifconfig.io` returns IP address content, not a status check. The curl command properly tests connectivity and returns appropriate exit codes.
 
 **Impact**: Reliable health checks for VPN container status monitoring
 
