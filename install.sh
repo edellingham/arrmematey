@@ -12,8 +12,8 @@
 set -e
 
 # Script version information
-SCRIPT_VERSION="2.1.5"
-SCRIPT_DATE="2025-11-16"
+SCRIPT_VERSION="2.15.0"
+SCRIPT_DATE="2025-11-17"
 
 # Check if running the right version
 if [[ -z "$SCRIPT_VERSION" || -z "$SCRIPT_DATE" ]]; then
@@ -731,18 +731,21 @@ EOF
     fi
 }
 
-# Get Mullvad ID
-get_mullvad_id() {
+# Get Mullvad zip file for Wireguard configuration
+get_mullvad_zip() {
     echo ""
-    echo -e "${BLUE}🔐 Mullvad VPN Configuration${NC}"
-    echo "Get your ID from: https://mullvad.net/en/account/"
+    echo -e "${BLUE}🔐 Mullvad Wireguard Configuration${NC}"
+    echo "Get your configuration from: https://mullvad.net/en/account/#/wireguard-config"
     echo ""
-    read -p "Enter Mullvad Account ID: " MULLVAD_ID
-    while [[ -z "$MULLVAD_ID" ]]; do
-        echo -e "${RED}Account ID is required${NC}"
-        read -p "Enter Mullvad Account ID: " MULLVAD_ID
+    echo "Mullvad removed OpenVPN support in January 2026."
+    echo "Wireguard is now the only supported protocol."
+    echo ""
+    read -p "Enter path to Mullvad Wireguard zip file: " ZIP_FILE
+    while [[ -z "$ZIP_FILE" || ! -f "$ZIP_FILE" ]]; do
+        echo -e "${RED}Zip file not found${NC}"
+        read -p "Enter path to Mullvad Wireguard zip file: " ZIP_FILE
     done
-    echo -e "${GREEN}✅ Mullvad ID configured${NC}"
+    echo -e "${GREEN}✅ Zip file configured: $ZIP_FILE${NC}"
 }
 
 # Create configuration
@@ -760,14 +763,18 @@ PUID=$(id -u)
 PGID=$(id -g)
 TZ=UTC
 
-# VPN Configuration
-MULLVAD_USER=$MULLVAD_ID
-MULLVAD_ACCOUNT_ID=$MULLVAD_ID
+# Mullvad VPN Configuration (REQUIRED)
+MULLVAD_USER=your_mullvad_id_here
+MULLVAD_ACCOUNT_ID=your_mullvad_id_here
 MULLVAD_COUNTRY=us
 MULLVAD_CITY=ny
 
-# VPN Type: openvpn (simpler) or wireguard (faster, needs private key)
-VPN_TYPE=openvpn
+# VPN Type: Wireguard only (OpenVPN removed January 2026)
+VPN_TYPE=wireguard
+
+# Wireguard credentials (extract from Mullvad zip file)
+WIREGUARD_PRIVATE_KEY=
+WIREGUARD_ADDRESSES=
 
 # Docker volume paths
 MEDIA_PATH=/data/media
@@ -823,9 +830,9 @@ services:
     cap_add: [NET_ADMIN]
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
-      - VPN_TYPE=${VPN_TYPE:-openvpn}
-      - OPENVPN_USER=${OPENVPN_USER:-${MULLVAD_ACCOUNT_ID}}
+      - VPN_TYPE=wireguard
       - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY:-}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES:-}
       - SERVER_Countries=${MULLVAD_COUNTRY:-us}
       - SERVER_Cities=${MULLVAD_CITY:-ny}
       - TZ=${TZ:-UTC}
@@ -834,7 +841,6 @@ services:
       - AUTOCONNECT=true
       - KILLSWITCH=true
       - SHADOWSOCKS=off
-      - HEALTH_STATUS=off
     volumes:
       - gluetun-config:/config
     ports:
@@ -2086,10 +2092,16 @@ while true; do
             echo ""
             echo -e "${GREEN}🚀 Starting Arrmematey Installation...${NC}"
             echo ""
-            # Run the original installation process
+            # Run the Wireguard-only installation process
             check_docker
-            get_mullvad_id
+            get_mullvad_zip
             create_config
+
+            # Extract Wireguard credentials from zip
+            if [[ -f "$(pwd)/wireguard-setup.sh" ]]; then
+                bash wireguard-setup.sh "$ZIP_FILE"
+            fi
+
             download_compose
             start_services
             show_completion

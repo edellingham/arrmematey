@@ -102,8 +102,12 @@ MULLVAD_ACCOUNT_ID=your_mullvad_id_here
 MULLVAD_COUNTRY=us
 MULLVAD_CITY=ny
 
-# VPN Type: openvpn (simpler) or wireguard (faster, needs private key)
-VPN_TYPE=openvpn
+# VPN Type: Wireguard only (OpenVPN removed January 2026)
+VPN_TYPE=wireguard
+
+# Wireguard credentials (extract from Mullvad zip file)
+WIREGUARD_PRIVATE_KEY=
+WIREGUARD_ADDRESSES=
 
 # Docker volume paths
 MEDIA_PATH=/data/media
@@ -157,8 +161,9 @@ services:
     cap_add: [NET_ADMIN]
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
-      - VPN_TYPE=openvpn
-      - OPENVPN_USER=${OPENVPN_USER:-${MULLVAD_ACCOUNT_ID}}
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY:-${MULLVAD_PRIVATE_KEY:-}}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES:-}
       - SERVER_Countries=${MULLVAD_COUNTRY:-us}
       - SERVER_Cities=${MULLVAD_CITY:-ny}
       - TZ=${TZ:-UTC}
@@ -167,7 +172,6 @@ services:
       - AUTOCONNECT=true
       - KILLSWITCH=true
       - SHADOWSOCKS=off
-      - HEALTH_STATUS=off
     volumes:
       - gluetun-config:/config
     ports:

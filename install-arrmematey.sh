@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.14.5${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.15.0${PURPLE}  |  Date: ${GREEN}2025-11-17${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -350,12 +350,12 @@ MULLVAD_ACCOUNT_ID=
 MULLVAD_COUNTRY=us
 MULLVAD_CITY=ny
 
-# VPN Type: openvpn (simpler, default) or wireguard (faster, needs private key)
-VPN_TYPE=openvpn
+# VPN Type: Wireguard only (OpenVPN removed January 2026)
+VPN_TYPE=wireguard
 
-# VPN credentials (set automatically based on VPN_TYPE)
-OPENVPN_USER=
+# Wireguard credentials (extract from Mullvad zip file)
 WIREGUARD_PRIVATE_KEY=
+WIREGUARD_ADDRESSES=
 
 # Port Configuration
 MANAGEMENT_UI_PORT=8787
@@ -519,45 +519,56 @@ configure_arrmematey() {
     print_info "Please configure your Arrmematey installation:"
     echo ""
 
-    # Mullvad Account ID (required)
-    echo -n "Mullvad Account ID (required): "
-    read -r MULLVAD_ACCOUNT_ID
+    # Wireguard Zip File Configuration
+    echo ""
+    print_info "Wireguard Configuration (Mullvad OpenVPN removed January 2026)"
+    echo ""
+    echo "Arrmematey now uses Wireguard-only for VPN connectivity."
+    echo ""
+    echo "📋 Setup Process:"
+    echo "  1. Download Wireguard config from: https://mullvad.net/en/account/#/wireguard-config"
+    echo "  2. Save the zip file (mullvad_wireguard_*.zip)"
+    echo "  3. Provide the path to the zip file below"
+    echo ""
 
-    # For OpenVPN, set OPENVPN_USER; for Wireguard, use account ID separately
-    OPENVPN_USER="$MULLVAD_ACCOUNT_ID"
+    # Prompt for zip file location
+    echo -n "Path to Mullvad Wireguard zip file: "
+    read -r WIREGUARD_ZIP_PATH
 
-    if [[ -z "$MULLVAD_ACCOUNT_ID" ]]; then
-        error_exit "Mullvad Account ID is required for VPN functionality"
+    if [[ -z "$WIREGUARD_ZIP_PATH" ]]; then
+        error_exit "Wireguard zip file is required for VPN functionality"
     fi
 
-    # VPN Type Selection
-    echo ""
-    print_info "Choose your VPN protocol"
-    echo ""
-    echo "Options:"
-    echo "  1) OpenVPN (recommended, works out of the box)"
-    echo "  2) Wireguard (faster, requires manual setup)"
-    echo ""
-    echo "OpenVPN just needs your account ID."
-    echo "Wireguard is faster but requires generating a private key from your Mullvad account."
-    echo ""
-    read -p "Choose option [1-2] [1=OpenVPN]: " vpn_choice
-    [[ -z "$vpn_choice" ]] && vpn_choice="1"
+    if [[ ! -f "$WIREGUARD_ZIP_PATH" ]]; then
+        error_exit "Zip file not found: $WIREGUARD_ZIP_PATH"
+    fi
 
-    if [[ $vpn_choice == "2" ]]; then
-        VPN_TYPE="wireguard"
-        echo ""
-        print_info "Wireguard selected. You'll need a private key."
-        print_info "Generate it from: https://mullvad.net/en/account/wireguard-keys"
-        echo -n "Enter your Wireguard private key: "
-        read -r WIREGUARD_PRIVATE_KEY
+    # Extract Wireguard credentials using wireguard-setup.sh
+    print_info "Extracting Wireguard configuration from zip file..."
 
-        if [[ -z "$WIREGUARD_PRIVATE_KEY" ]]; then
-            error_exit "Wireguard requires a private key. Please try again."
-        fi
-    else
-        VPN_TYPE="openvpn"
-        WIREGUARD_PRIVATE_KEY=""
+    # Call wireguard-setup.sh to extract credentials
+    if [[ ! -f "/opt/arrmematey/wireguard-setup.sh" ]]; then
+        error_exit "wireguard-setup.sh not found in /opt/arrmematey/"
+    fi
+
+    # Run wireguard-setup.sh and capture output
+    bash /opt/arrmematey/wireguard-setup.sh "$WIREGUARD_ZIP_PATH" &> /tmp/wireguard-setup.log
+
+    if [[ $? -ne 0 ]]; then
+        cat /tmp/wireguard-setup.log
+        error_exit "Failed to extract Wireguard configuration"
+    fi
+
+    print_success "Wireguard configuration extracted successfully"
+
+    # Load extracted configuration from .env
+    source ~/.env
+    WIREGUARD_PRIVATE_KEY="${WIREGUARD_PRIVATE_KEY:-}"
+    WIREGUARD_ADDRESSES="${WIREGUARD_ADDRESSES:-}"
+    MULLVAD_ACCOUNT_ID="${MULLVAD_ACCOUNT_ID:-}"
+
+    if [[ -z "$WIREGUARD_PRIVATE_KEY" ]] || [[ -z "$WIREGUARD_ADDRESSES" ]]; then
+        error_exit "Failed to extract Wireguard credentials from zip file"
     fi
 
     # VPN Location
@@ -668,19 +679,12 @@ configure_arrmematey() {
     # Update .env file
     print_info "Updating configuration..."
 
-    sed -i "s|MULLVAD_ACCOUNT_ID=.*|MULLVAD_ACCOUNT_ID=$MULLVAD_ACCOUNT_ID|" "$env_file"
-    sed -i "s|MULLVAD_COUNTRY=.*|MULLVAD_COUNTRY=$MULLVAD_COUNTRY|" "$env_file"
-    sed -i "s|MULLVAD_CITY=.*|MULLVAD_CITY=$MULLVAD_CITY|" "$env_file"
-    sed -i "s|VPN_TYPE=.*|VPN_TYPE=$VPN_TYPE|" "$env_file"
-    sed -i "s|OPENVPN_USER=.*|OPENVPN_USER=$OPENVPN_USER|" "$env_file"
-
-    # Set Wireguard private key if using Wireguard
-    if [[ -n "$WIREGUARD_PRIVATE_KEY" ]]; then
-        if grep -q "^WIREGUARD_PRIVATE_KEY=" "$env_file"; then
-            sed -i "s|WIREGUARD_PRIVATE_KEY=.*|WIREGUARD_PRIVATE_KEY=$WIREGUARD_PRIVATE_KEY|" "$env_file"
-        else
-            echo "WIREGUARD_PRIVATE_KEY=$WIREGUARD_PRIVATE_KEY" >> "$env_file"
-        fi
+    # Configuration already updated by wireguard-setup.sh
+    # Just verify the values are set
+    if grep -q "^WIREGUARD_PRIVATE_KEY=" "$env_file" && grep -q "^WIREGUARD_ADDRESSES=" "$env_file"; then
+        print_success "Wireguard credentials configured"
+    else
+        error_exit "Wireguard configuration incomplete"
     fi
 
     sed -i "s|CONFIG_PATH=.*|CONFIG_PATH=$CONFIG_PATH|" "$env_file"
