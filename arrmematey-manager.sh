@@ -8,6 +8,9 @@
 
 set -euo pipefail
 
+# Version
+VERSION="2.19.0"
+
 # Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
