@@ -1,15 +1,16 @@
 # Arrmematey VPN Fixes - Conversation Summary
 
 **Project**: Arrmematey - Docker-based media automation stack with VPN-first security
-**Date Range**: 2025-11-16
+**Date Range**: 2025-11-16 to 2025-11-17
 **Primary Issue**: VPN container failures preventing media stack from starting
 **User's Core Request**: "We need to make sure the core script works. Not just fix this device."
+**Latest Update**: Wireguard-only migration for Mullvad (EOL OpenVPN Jan 1, 2026)
 
 ---
 
 ## Executive Summary
 
-This conversation document chronicles a comprehensive troubleshooting and fixing session for the Arrmematey media automation stack's VPN container failures. The user experienced repeated gluetun VPN container crashes and requested systematic fixes to all installer scripts, not just device-specific troubleshooting.
+This conversation document chronicles a comprehensive troubleshooting and fixing session for the Arrmematey media automation stack's VPN container failures, followed by a complete Wireguard-only migration. The user experienced repeated gluetun VPN container crashes and requested systematic fixes to all installer scripts, not just device-specific troubleshooting.
 
 Through systematic diagnosis, official documentation review, and iterative testing, we identified and resolved multiple critical configuration issues:
 - DNS configuration incompatibility with newer Gluetun versions
@@ -19,7 +20,37 @@ Through systematic diagnosis, official documentation review, and iterative testi
 - Legacy Docker syntax issues
 - Missing service definitions
 
+**Latest Update (v2.15.0)**: Complete migration to Wireguard-only configuration in preparation for Mullvad's removal of OpenVPN support on January 1, 2026. This includes:
+- Removal of OpenVPN protocol selection from all installer scripts
+- Implementation of automated Mullvad zip file extraction workflow
+- Addition of wireguard-setup.sh for credential extraction
+- Hardcoding VPN_TYPE=wireguard in docker-compose.yml
+- Addition of WIREGUARD_ADDRESSES environment variable
+- Comprehensive testing with actual Mullvad zip files
+
 All fixes were applied across multiple installer variants with version bumping to avoid CDN caching.
+
+**Executive Summary - Wireguard Migration (v2.15.0)**
+
+Mullvad announced removal of OpenVPN support on January 1, 2026, requiring migration to Wireguard-only configuration. This update transforms Arrmematey from a dual-protocol system (OpenVPN/Wireguard) to Wireguard-only, simplifying the installer while ensuring future compatibility.
+
+**Key Changes**:
+- Removed interactive VPN type selection (simplified user experience)
+- Automated zip file extraction workflow (user provides Mullvad zip file)
+- Wireguard credentials automatically extracted and configured
+- Updated all three installer scripts to consistent Wireguard-only workflow
+- Added comprehensive testing suite (8 tests, all passed)
+
+**New Tools**:
+- `wireguard-setup.sh`: Automated credential extraction from Mullvad zip files
+- `ssh-transfer-guide.sh`: Interactive SSH file transfer helper
+- Migration documentation: WIREGUARD_MIGRATION.md, IMPLEMENTATION_SUMMARY.md
+
+**Testing**: Comprehensive local testing with actual Mullvad zip file (mullvad_wireguard_linux_us_chi.zip)
+- Successfully extracted PrivateKey: 2LJoWfUCFHejetq3m7ezIBx/GrZjPNY8WlAR9C9qalM=
+- Successfully extracted Address: 10.68.81.251/32
+- All configuration files generated correctly
+- Docker Compose validation passed
 
 ---
 
@@ -389,6 +420,7 @@ docker-compose --profile full up -d
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.15.0 | 2025-11-17 | Wireguard-only migration (Mullvad OpenVPN EOL Jan 2026) |
 | 2.14.5 | 2025-11-16 | Fix gluetun internal healthcheck conflict |
 | 2.14.0 | 2025-11-16 | VPN fixes: DNS, auth variables, healthcheck |
 | 2.13.1 | 2025-11-16 | Port conflict resolution (8080→8787) |
@@ -538,16 +570,18 @@ docker exec arrstack-ui ls -la /var/run/docker.sock
 
 ## Conclusion
 
-The comprehensive fixes applied during this conversation transformed Arrmematey from a non-functional stack (due to VPN container failures) to a robust, production-ready media automation platform. Key achievements:
+The comprehensive fixes applied during this conversation transformed Arrmematey from a non-functional stack (due to VPN container failures) to a robust, production-ready media automation platform with Wireguard-only configuration. Key achievements:
 
 - ✅ VPN container starts reliably
-- ✅ Correct authentication for OpenVPN and Wireguard
+- ✅ Wireguard-only configuration (future-proof for Mullvad EOL)
+- ✅ Automated zip file extraction workflow
 - ✅ No port conflicts between services
 - ✅ Accurate health monitoring
 - ✅ User-friendly installation with progress visibility
 - ✅ Comprehensive auto-configuration
 - ✅ Consistent fixes across all installer variants
+- ✅ Comprehensive testing with actual Mullvad credentials
 
 The fixes are production-ready and deployed to the main branch with proper version bumping to ensure users receive the latest installer scripts without CDN caching issues.
 
-**Final Status**: All VPN-related issues resolved. Stack deploys successfully with Mullvad VPN protection enabled.
+**Final Status**: All VPN-related issues resolved. Stack deploys successfully with Wireguard-only Mullvad VPN protection. Ready for Mullvad's OpenVPN removal on January 1, 2026.
