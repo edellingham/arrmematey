@@ -277,6 +277,177 @@ install_docker() {
         error_exit "Docker Compose installation failed"
     fi
 }
+###############################################################################
+# Wireguard Configuration Functions (embedded from wireguard-setup.sh)
+###############################################################################
+
+# Function to extract and validate Mullvad zip file
+extract_mullvad_zip() {
+    local zip_path="$1"
+    local extract_dir="/tmp/mullvad_wireguard_extract_$$"
+
+    print_info "Extracting zip file to temporary directory..."
+
+    # Create temp directory
+    mkdir -p "$extract_dir"
+
+    # Extract zip
+    if ! unzip -q "$zip_path" -d "$extract_dir"; then
+        print_error "Failed to extract zip file"
+        rm -rf "$extract_dir"
+        return 1
+    fi
+
+    # Find first conf file
+    local conf_file=$(find "$extract_dir" -name "*.conf" | head -1)
+
+    if [[ -z "$conf_file" ]]; then
+        print_error "No .conf files found in zip"
+        rm -rf "$extract_dir"
+        return 1
+    fi
+
+    print_success "Found configuration file: $(basename $conf_file)"
+    echo "$extract_dir|$conf_file"
+}
+
+# Function to parse Wireguard conf file
+parse_wireguard_conf() {
+    local conf_file="$1"
+
+    print_info "Parsing configuration file..."
+
+    # Extract PrivateKey
+    local private_key=$(grep "^PrivateKey" "$conf_file" | awk '{print $3}')
+
+    if [[ -z "$private_key" ]]; then
+        print_error "Could not find PrivateKey in conf file"
+        return 1
+    fi
+
+    # Extract Address (IPv4 only, before comma)
+    local address=$(grep "^Address" "$conf_file" | awk '{print $3}' | cut -d',' -f1)
+
+    if [[ -z "$address" ]]; then
+        print_error "Could not find Address in conf file"
+        return 1
+    fi
+
+    print_success "Extracted configuration:"
+    print_info "  PrivateKey: ${private_key:0:20}..."
+    print_info "  Address: $address"
+
+    echo "$private_key|$address"
+}
+
+# Function to update docker-compose.yml with Wireguard credentials
+update_wireguard_config() {
+    local private_key="$1"
+    local address="$2"
+
+    print_info "Updating docker-compose.yml with Wireguard configuration..."
+
+    # Backup existing file
+    if [[ -f "/opt/arrmematey/docker-compose.yml" ]]; then
+        cp /opt/arrmematey/docker-compose.yml /opt/arrmematey/docker-compose.yml.backup
+        print_success "Created backup: docker-compose.yml.backup"
+    fi
+
+    # Update WIREGUARD_PRIVATE_KEY
+    if grep -q "WIREGUARD_PRIVATE_KEY" /opt/arrmematey/docker-compose.yml; then
+        # Replace existing value
+        sed -i "s|WIREGUARD_PRIVATE_KEY=.*|WIREGUARD_PRIVATE_KEY=$private_key|" /opt/arrmematey/docker-compose.yml
+    else
+        # Add after VPN_TYPE line
+        sed -i "/VPN_TYPE=.*/a\\      - WIREGUARD_PRIVATE_KEY=$private_key" /opt/arrmematey/docker-compose.yml
+    fi
+
+    # Update WIREGUARD_ADDRESSES
+    if grep -q "WIREGUARD_ADDRESSES" /opt/arrmematey/docker-compose.yml; then
+        sed -i "s|WIREGUARD_ADDRESSES=.*|WIREGUARD_ADDRESSES=$address|" /opt/arrmematey/docker-compose.yml
+    else
+        sed -i "/WIREGUARD_PRIVATE_KEY=.*/a\\      - WIREGUARD_ADDRESSES=$address" /opt/arrmematey/docker-compose.yml
+    fi
+
+    # Set VPN_TYPE to wireguard
+    sed -i "s|VPN_TYPE=.*|VPN_TYPE=wireguard|" /opt/arrmematey/docker-compose.yml
+
+    print_success "docker-compose.yml updated with Wireguard credentials"
+}
+
+# Function to configure Wireguard from zip file
+configure_wireguard_from_zip() {
+    local zip_path="$1"
+
+    if [[ -z "$zip_path" ]]; then
+        print_error "No zip file provided"
+        return 1
+    fi
+
+    # Extract zip
+    local extract_result
+    extract_result=$(extract_mullvad_zip "$zip_path")
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    local extract_dir="${extract_result%|*}"
+    local conf_file="${extract_result#*|}"
+
+    # Parse conf file
+    local parse_result
+    parse_result=$(parse_wireguard_conf "$conf_file")
+    if [[ $? -ne 0 ]]; then
+        rm -rf "$extract_dir"
+        return 1
+    fi
+
+    local private_key="${parse_result%|*}"
+    local address="${parse_result#*|}"
+
+    # Cleanup temp directory
+    rm -rf "$extract_dir"
+
+    # Update docker-compose.yml
+    update_wireguard_config "$private_key" "$address"
+
+    # Update .env file
+    local env_file="$HOME/.env"
+    if [[ ! -f "$env_file" ]]; then
+        cat > "$env_file" <<EOF
+# Arrmematey Configuration
+PUID=$(id -u)
+PGID=$(id -g)
+TZ=UTC
+
+# VPN Configuration
+VPN_TYPE=wireguard
+EOF
+    fi
+
+    # Update or add Wireguard variables
+    update_env_var() {
+        local var_name="$1"
+        local var_value="$2"
+
+        if grep -q "^${var_name}=" "$env_file"; then
+            sed -i "s|^${var_name}=.*|${var_name}=${var_value}|" "$env_file"
+        else
+            echo "${var_name}=${var_value}" >> "$env_file"
+        fi
+    }
+
+    update_env_var "WIREGUARD_PRIVATE_KEY" "$private_key"
+    update_env_var "WIREGUARD_ADDRESSES" "$address"
+    update_env_var "VPN_TYPE" "wireguard"
+
+    print_success "Wireguard configuration complete"
+    print_info "Private Key: ${private_key:0:20}..."
+    print_info "Address: $address"
+
+    return 0
+}
+
 
 ###############################################################################
 # Arrmematey Installation
@@ -543,19 +714,11 @@ configure_arrmematey() {
         error_exit "Zip file not found: $WIREGUARD_ZIP_PATH"
     fi
 
-    # Extract Wireguard credentials using wireguard-setup.sh
+    # Extract Wireguard credentials using embedded function
     print_info "Extracting Wireguard configuration from zip file..."
 
-    # Call wireguard-setup.sh to extract credentials
-    if [[ ! -f "/opt/arrmematey/wireguard-setup.sh" ]]; then
-        error_exit "wireguard-setup.sh not found in /opt/arrmematey/"
-    fi
-
-    # Run wireguard-setup.sh and capture output
-    bash /opt/arrmematey/wireguard-setup.sh "$WIREGUARD_ZIP_PATH" &> /tmp/wireguard-setup.log
-
-    if [[ $? -ne 0 ]]; then
-        cat /tmp/wireguard-setup.log
+    # Call embedded function to extract credentials
+    if ! configure_wireguard_from_zip "$WIREGUARD_ZIP_PATH"; then
         error_exit "Failed to extract Wireguard configuration"
     fi
 
@@ -679,7 +842,7 @@ configure_arrmematey() {
     # Update .env file
     print_info "Updating configuration..."
 
-    # Configuration already updated by wireguard-setup.sh
+    # Configuration already updated by embedded Wireguard function
     # Just verify the values are set
     if grep -q "^WIREGUARD_PRIVATE_KEY=" "$env_file" && grep -q "^WIREGUARD_ADDRESSES=" "$env_file"; then
         print_success "Wireguard credentials configured"
