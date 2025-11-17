@@ -97,6 +97,7 @@ PGID=$(id -g)
 TZ=UTC
 
 # Mullvad VPN Configuration (REQUIRED)
+MULLVAD_USER=your_mullvad_id_here
 MULLVAD_ACCOUNT_ID=your_mullvad_id_here
 MULLVAD_COUNTRY=us
 MULLVAD_CITY=ny
