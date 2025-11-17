@@ -33,7 +33,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/
 ```bash
 git clone https://github.com/edellingham/arrmematey.git
 cd arrmematey
-./quick-install.sh
+./install-arrmematey.sh
 ```
 
 ## ⚔️ Complete Media Automation Stack
@@ -72,22 +72,31 @@ cd arrmematey
 | Emby | http://localhost:8096 | Media server |
 | Jellyseerr | http://localhost:5055 | Request system |
 
-## 🧭 Quick Commands
+## 🧭 Management Tools
+
+### TUI Manager (Text Interface)
 ```bash
-# Check status
-docker-compose ps
+./arrmematey-manager.sh
+```
 
-# View logs
-docker-compose logs -f [service]
+Interactive TUI for:
+- Start/stop/restart services
+- View service logs
+- Check VPN status
+- System information
+- Update Arrmematey
 
-# Restart all services
-docker-compose restart
+### Quick Commands
+```bash
+# Using TUI Manager (recommended)
+./arrmematey-manager.sh
 
-# Stop everything
-docker-compose down
-
-# Start again
-docker-compose up -d
+# Or direct Docker Compose commands
+docker compose ps                    # Check status
+docker compose logs -f [service]     # View logs
+docker compose restart               # Restart all services
+docker compose down                  # Stop everything
+docker compose up -d                 # Start again
 ```
 
 ## 🧭 Setup Tips
