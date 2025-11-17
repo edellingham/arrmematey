@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.16.0${PURPLE}  |  Date: ${GREEN}2025-11-17${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.17.0${PURPLE}  |  Date: ${GREEN}2025-11-17${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -696,25 +696,171 @@ configure_arrmematey() {
     echo ""
     echo "Arrmematey now uses Wireguard-only for VPN connectivity."
     echo ""
-    echo "📋 Setup Process:"
-    echo "  1. Download Wireguard config from: https://mullvad.net/en/account/#/wireguard-config"
-    echo "  2. Save the zip file (mullvad_wireguard_*.zip)"
-    echo "  3. Provide the path to the zip file below"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${CYAN}📦 MULLVAD ZIP FILE REQUIRED${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
+    echo "You need to provide your Mullvad Wireguard configuration zip file."
+    echo "This file contains your VPN credentials for secure connections."
+    echo ""
+    echo "Download from: ${GREEN}https://mullvad.net/en/account/#/wireguard-config${NC}"
+    echo ""
+    echo "How would you like to provide the file?"
+    echo ""
+    echo "  1. Local file path (file is on this server)"
+    echo "  2. SSH transfer (transfer from your computer)"
+    echo "  3. I'll provide it later (manual method)"
+    echo ""
+    read -p "Select option [1-3]: " zip_option
 
-    # Prompt for zip file location
-    echo -n "Path to Mullvad Wireguard zip file: "
-    read -r WIREGUARD_ZIP_PATH
+    case $zip_option in
+        1)
+            # Local file path
+            echo ""
+            print_info "Local file path selected"
+            echo ""
+            echo "Enter the full path to your Mullvad zip file:"
+            echo "Examples:"
+            echo "  • /tmp/mullvad_wireguard_linux_us_chi.zip"
+            echo "  • ~/Downloads/mullvad_wireguard.zip"
+            echo "  • /opt/arrmematey/mullvad_wireguard.zip"
+            echo ""
+            read -p "Zip file path: " WIREGUARD_ZIP_PATH
 
-    if [[ -z "$WIREGUARD_ZIP_PATH" ]]; then
-        error_exit "Wireguard zip file is required for VPN functionality"
-    fi
+            if [[ -z "$WIREGUARD_ZIP_PATH" ]]; then
+                error_exit "Wireguard zip file path is required"
+            fi
 
-    if [[ ! -f "$WIREGUARD_ZIP_PATH" ]]; then
-        error_exit "Zip file not found: $WIREGUARD_ZIP_PATH"
-    fi
+            # Expand tilde
+            WIREGUARD_ZIP_PATH="${WIREGUARD_ZIP_PATH/#\~/$HOME}"
+
+            if [[ ! -f "$WIREGUARD_ZIP_PATH" ]]; then
+                error_exit "Zip file not found: $WIREGUARD_ZIP_PATH"
+            fi
+            ;;
+        2)
+            # SSH transfer option
+            echo ""
+            print_info "SSH transfer selected"
+            echo ""
+            echo "I'll help you transfer the zip file from your local computer."
+            echo "This requires SSH access to this server."
+            echo ""
+
+            # Get server details for SSH transfer
+            echo "Enter your local computer details:"
+            read -p "Your local username: " local_user
+            read -p "Your local server IP/hostname: " server_ip
+
+            echo ""
+            print_info "Setting up SSH keys for password-less transfer..."
+
+            # Generate SSH key if doesn't exist
+            if [[ ! -f ~/.ssh/id_rsa ]]; then
+                print_info "Generating SSH key..."
+                ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C "arrmematey-transfer" 2>/dev/null
+                print_success "SSH key generated"
+            fi
+
+            # Copy key to local machine
+            print_info "You'll be prompted for your LOCAL password to copy the SSH key..."
+            if ssh-copy-id "$local_user@$server_ip" 2>/dev/null; then
+                print_success "SSH key copied to local machine"
+            else
+                echo ""
+                print_warning "Automatic copy failed. Manual method:"
+                echo "On your LOCAL computer, run:"
+                echo "  cat ~/.ssh/id_rsa.pub"
+                echo "Copy the output and add it to: ~/.ssh/authorized_keys on this server"
+                echo ""
+                read -p "Press Enter after adding the key..."
+            fi
+
+            # Test connection
+            print_info "Testing SSH connection to local machine..."
+            if ssh -o BatchMode=yes "$local_user@$server_ip" "echo 'Connection successful'" 2>/dev/null; then
+                print_success "SSH connection working!"
+            else
+                print_error "SSH connection failed. Please check your credentials."
+                exit 1
+            fi
+
+            # Get zip file location on local machine
+            echo ""
+            echo "Where is the Mullvad zip file on your LOCAL computer?"
+            read -p "Local file path (e.g., ~/Downloads/mullvad_wireguard.zip): " local_zip_path
+            local_zip_path="${local_zip_path/#\~/$HOME}"
+
+            # Transfer file
+            echo ""
+            print_info "Transferring zip file..."
+            local dest_path="/tmp/mullvad_wireguard_$(date +%s).zip"
+
+            if scp "$local_user@$server_ip:$local_zip_path" "$dest_path" 2>/dev/null; then
+                WIREGUARD_ZIP_PATH="$dest_path"
+                print_success "File transferred successfully!"
+            else
+                error_exit "Failed to transfer zip file"
+            fi
+            ;;
+        3)
+            # Manual method
+            echo ""
+            print_info "Manual method selected"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "MANUAL TRANSFER INSTRUCTIONS:"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "1. Download Mullvad zip from your local computer:"
+            echo "   ${GREEN}https://mullvad.net/en/account/#/wireguard-config${NC}"
+            echo ""
+            echo "2. Transfer to this server using one of these methods:"
+            echo ""
+            echo "   Method A - SCP (from your local computer):"
+            echo "   scp mullvad_wireguard.zip user@SERVER_IP:/tmp/"
+            echo ""
+            echo "   Method B - SFTP (from your local computer):"
+            echo "   sftp user@SERVER_IP"
+            echo "   sftp> put mullvad_wireguard.zip /tmp/"
+            echo ""
+            echo "   Method C - Upload to cloud and download:"
+            echo "   curl -L -o /tmp/mullvad_wireguard.zip YOUR_DOWNLOAD_URL"
+            echo ""
+            echo "3. After transfer, the file should be at:"
+            echo "   /tmp/mullvad_wireguard.zip"
+            echo ""
+            read -p "Press Enter after transferring the file..."
+
+            # Check common locations
+            WIREGUARD_ZIP_PATH=""
+            for path in /tmp/mullvad_wireguard*.zip ~/mullvad_wireguard*.zip $(pwd)/mullvad_wireguard*.zip; do
+                if [[ -f "$path" ]]; then
+                    WIREGUARD_ZIP_PATH="$path"
+                    break
+                fi
+            done
+
+            if [[ -z "$WIREGUARD_ZIP_PATH" ]]; then
+                echo ""
+                read -p "Enter the exact path to the zip file: " WIREGUARD_ZIP_PATH
+                WIREGUARD_ZIP_PATH="${WIREGUARD_ZIP_PATH/#\~/$HOME}"
+
+                if [[ ! -f "$WIREGUARD_ZIP_PATH" ]]; then
+                    error_exit "Zip file not found: $WIREGUARD_ZIP_PATH"
+                fi
+            fi
+            ;;
+        *)
+            error_exit "Invalid option selected"
+            ;;
+    esac
+
+    echo ""
+    print_info "Using zip file: $WIREGUARD_ZIP_PATH"
 
     # Extract Wireguard credentials using embedded function
+    echo ""
     print_info "Extracting Wireguard configuration from zip file..."
 
     # Call embedded function to extract credentials
