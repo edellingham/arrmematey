@@ -12,7 +12,7 @@
 set -e
 
 # Script version information
-SCRIPT_VERSION="2.1.2"
+SCRIPT_VERSION="2.1.3"
 SCRIPT_DATE="2024-11-15"
 
 # Check if running the right version
@@ -831,7 +831,6 @@ services:
       - TZ=${TZ:-UTC}
       - FIREWALL=on
       - FIREWALL_VPN_INPUT_PORTS=${SONARR_PORT:-8989},${RADARR_PORT:-7878},${LIDARR_PORT:-8686},${SABNZBD_PORT:-8080},${QBITTORRENT_PORT:-8081}
-      - DNS_ADDRESS=1.1.1.1
       - AUTOCONNECT=true
       - KILLSWITCH=true
     volumes:
