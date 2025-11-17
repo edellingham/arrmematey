@@ -101,6 +101,9 @@ MULLVAD_ACCOUNT_ID=your_mullvad_id_here
 MULLVAD_COUNTRY=us
 MULLVAD_CITY=ny
 
+# VPN Type: openvpn (simpler) or wireguard (faster, needs private key)
+VPN_TYPE=openvpn
+
 # Docker volume paths
 MEDIA_PATH=/data/media
 DOWNLOADS_PATH=/data/downloads

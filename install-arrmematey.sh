@@ -80,7 +80,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.12.1${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.13.0${PURPLE}  |  Date: ${GREEN}2025-11-16${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -350,6 +350,9 @@ MULLVAD_ACCOUNT_ID=
 MULLVAD_COUNTRY=us
 MULLVAD_CITY=ny
 
+# VPN Type: openvpn (simpler, default) or wireguard (faster, needs private key)
+VPN_TYPE=openvpn
+
 # Port Configuration
 MANAGEMENT_UI_PORT=8787
 PROWLARR_PORT=9696
@@ -520,6 +523,36 @@ configure_arrmematey() {
         error_exit "Mullvad Account ID is required for VPN functionality"
     fi
 
+    # VPN Type Selection
+    echo ""
+    print_info "Choose your VPN protocol"
+    echo ""
+    echo "Options:"
+    echo "  1) OpenVPN (recommended, works out of the box)"
+    echo "  2) Wireguard (faster, requires manual setup)"
+    echo ""
+    echo "OpenVPN just needs your account ID."
+    echo "Wireguard is faster but requires generating a private key from your Mullvad account."
+    echo ""
+    read -p "Choose option [1-2] [1=OpenVPN]: " vpn_choice
+    [[ -z "$vpn_choice" ]] && vpn_choice="1"
+
+    if [[ $vpn_choice == "2" ]]; then
+        VPN_TYPE="wireguard"
+        echo ""
+        print_info "Wireguard selected. You'll need a private key."
+        print_info "Generate it from: https://mullvad.net/en/account/wireguard-keys"
+        echo -n "Enter your Wireguard private key: "
+        read -r MULLVAD_PRIVATE_KEY
+
+        if [[ -z "$MULLVAD_PRIVATE_KEY" ]]; then
+            error_exit "Wireguard requires a private key. Please try again."
+        fi
+    else
+        VPN_TYPE="openvpn"
+        MULLVAD_PRIVATE_KEY=""
+    fi
+
     # VPN Location
     echo ""
     print_info "Choose your VPN location"
@@ -631,6 +664,16 @@ configure_arrmematey() {
     sed -i "s|MULLVAD_ACCOUNT_ID=.*|MULLVAD_ACCOUNT_ID=$MULLVAD_ACCOUNT_ID|" "$env_file"
     sed -i "s|MULLVAD_COUNTRY=.*|MULLVAD_COUNTRY=$MULLVAD_COUNTRY|" "$env_file"
     sed -i "s|MULLVAD_CITY=.*|MULLVAD_CITY=$MULLVAD_CITY|" "$env_file"
+    sed -i "s|VPN_TYPE=.*|VPN_TYPE=$VPN_TYPE|" "$env_file"
+
+    # Set private key if using Wireguard
+    if [[ -n "$MULLVAD_PRIVATE_KEY" ]]; then
+        if grep -q "^MULLVAD_PRIVATE_KEY=" "$env_file"; then
+            sed -i "s|MULLVAD_PRIVATE_KEY=.*|MULLVAD_PRIVATE_KEY=$MULLVAD_PRIVATE_KEY|" "$env_file"
+        else
+            echo "MULLVAD_PRIVATE_KEY=$MULLVAD_PRIVATE_KEY" >> "$env_file"
+        fi
+    fi
 
     sed -i "s|CONFIG_PATH=.*|CONFIG_PATH=$CONFIG_PATH|" "$env_file"
     sed -i "s|MEDIA_PATH=.*|MEDIA_PATH=$MEDIA_PATH|" "$env_file"
