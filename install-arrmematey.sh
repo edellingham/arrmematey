@@ -281,34 +281,42 @@ install_docker() {
 # Wireguard Configuration Functions (embedded from wireguard-setup.sh)
 ###############################################################################
 
-# Function to extract and validate Mullvad zip file
-extract_mullvad_zip() {
-    local zip_path="$1"
-    local extract_dir="/tmp/mullvad_wireguard_extract_$$"
+# Function to parse pasted Wireguard conf content
+parse_pasted_wireguard_conf() {
+    local conf_content="$1"
 
-    print_info "Extracting zip file to temporary directory..."
+    print_info "Parsing pasted configuration..."
 
-    # Create temp directory
-    mkdir -p "$extract_dir"
+    # Create temp file for parsing
+    local temp_conf="/tmp/mullvad_wireguard_temp_$$.conf"
+    echo "$conf_content" > "$temp_conf"
 
-    # Extract zip
-    if ! unzip -q "$zip_path" -d "$extract_dir"; then
-        print_error "Failed to extract zip file"
-        rm -rf "$extract_dir"
+    # Extract PrivateKey
+    local private_key=$(grep "^PrivateKey" "$temp_conf" | awk '{print $3}')
+
+    if [[ -z "$private_key" ]]; then
+        print_error "Could not find PrivateKey in pasted content"
+        rm -f "$temp_conf"
         return 1
     fi
 
-    # Find first conf file
-    local conf_file=$(find "$extract_dir" -name "*.conf" | head -1)
+    # Extract Address (IPv4 only, before comma)
+    local address=$(grep "^Address" "$temp_conf" | awk '{print $3}' | cut -d',' -f1)
 
-    if [[ -z "$conf_file" ]]; then
-        print_error "No .conf files found in zip"
-        rm -rf "$extract_dir"
+    if [[ -z "$address" ]]; then
+        print_error "Could not find Address in pasted content"
+        rm -f "$temp_conf"
         return 1
     fi
 
-    print_success "Found configuration file: $(basename $conf_file)"
-    echo "$extract_dir|$conf_file"
+    # Cleanup temp file
+    rm -f "$temp_conf"
+
+    print_success "Extracted configuration:"
+    print_info "  PrivateKey: ${private_key:0:20}..."
+    print_info "  Address: $address"
+
+    echo "$private_key|$address"
 }
 
 # Function to parse Wireguard conf file
@@ -375,38 +383,24 @@ update_wireguard_config() {
     print_success "docker-compose.yml updated with Wireguard credentials"
 }
 
-# Function to configure Wireguard from zip file
-configure_wireguard_from_zip() {
-    local zip_path="$1"
+# Function to configure Wireguard from pasted conf content
+configure_wireguard_from_paste() {
+    local conf_content="$1"
 
-    if [[ -z "$zip_path" ]]; then
-        print_error "No zip file provided"
+    if [[ -z "$conf_content" ]]; then
+        print_error "No configuration content provided"
         return 1
     fi
 
-    # Extract zip
-    local extract_result
-    extract_result=$(extract_mullvad_zip "$zip_path")
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    local extract_dir="${extract_result%|*}"
-    local conf_file="${extract_result#*|}"
-
-    # Parse conf file
+    # Parse pasted conf content
     local parse_result
-    parse_result=$(parse_wireguard_conf "$conf_file")
+    parse_result=$(parse_pasted_wireguard_conf "$conf_content")
     if [[ $? -ne 0 ]]; then
-        rm -rf "$extract_dir"
         return 1
     fi
 
     local private_key="${parse_result%|*}"
     local address="${parse_result#*|}"
-
-    # Cleanup temp directory
-    rm -rf "$extract_dir"
 
     # Update docker-compose.yml
     update_wireguard_config "$private_key" "$address"
@@ -697,174 +691,53 @@ configure_arrmematey() {
     echo "Arrmematey now uses Wireguard-only for VPN connectivity."
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "${CYAN}📦 MULLVAD ZIP FILE REQUIRED${NC}"
+    echo -e "${CYAN}📋 MULLVAD WIREGUARD CONFIGURATION${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "You need to provide your Mullvad Wireguard configuration zip file."
-    echo "This file contains your VPN credentials for secure connections."
+    echo "Please provide your Mullvad Wireguard configuration."
     echo ""
-    echo "Download from: ${GREEN}https://mullvad.net/en/account/#/wireguard-config${NC}"
+    echo "${GREEN}Step 1:${NC} Download your Wireguard zip from:"
+    echo "         ${GREEN}https://mullvad.net/en/account/#/wireguard-config${NC}"
     echo ""
-    echo "How would you like to provide the file?"
+    echo "${GREEN}Step 2:${NC} Extract the zip file on your computer"
     echo ""
-    echo "  1. Local file path (file is on this server)"
-    echo "  2. SSH transfer (transfer from your computer)"
-    echo "  3. I'll provide it later (manual method)"
+    echo "${GREEN}Step 3:${NC} Open any .conf file in a text editor"
     echo ""
-    read -p "Select option [1-3]: " zip_option
-
-    case $zip_option in
-        1)
-            # Local file path
-            echo ""
-            print_info "Local file path selected"
-            echo ""
-            echo "Enter the full path to your Mullvad zip file:"
-            echo "Examples:"
-            echo "  • /tmp/mullvad_wireguard_linux_us_chi.zip"
-            echo "  • ~/Downloads/mullvad_wireguard.zip"
-            echo "  • /opt/arrmematey/mullvad_wireguard.zip"
-            echo ""
-            read -p "Zip file path: " WIREGUARD_ZIP_PATH
-
-            if [[ -z "$WIREGUARD_ZIP_PATH" ]]; then
-                error_exit "Wireguard zip file path is required"
-            fi
-
-            # Expand tilde
-            WIREGUARD_ZIP_PATH="${WIREGUARD_ZIP_PATH/#\~/$HOME}"
-
-            if [[ ! -f "$WIREGUARD_ZIP_PATH" ]]; then
-                error_exit "Zip file not found: $WIREGUARD_ZIP_PATH"
-            fi
-            ;;
-        2)
-            # SSH transfer option
-            echo ""
-            print_info "SSH transfer selected"
-            echo ""
-            echo "I'll help you transfer the zip file from your local computer."
-            echo "This requires SSH access to this server."
-            echo ""
-
-            # Get server details for SSH transfer
-            echo "Enter your local computer details:"
-            read -p "Your local username: " local_user
-            read -p "Your local server IP/hostname: " server_ip
-
-            echo ""
-            print_info "Setting up SSH keys for password-less transfer..."
-
-            # Generate SSH key if doesn't exist
-            if [[ ! -f ~/.ssh/id_rsa ]]; then
-                print_info "Generating SSH key..."
-                ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C "arrmematey-transfer" 2>/dev/null
-                print_success "SSH key generated"
-            fi
-
-            # Copy key to local machine
-            print_info "You'll be prompted for your LOCAL password to copy the SSH key..."
-            if ssh-copy-id "$local_user@$server_ip" 2>/dev/null; then
-                print_success "SSH key copied to local machine"
-            else
-                echo ""
-                print_warning "Automatic copy failed. Manual method:"
-                echo "On your LOCAL computer, run:"
-                echo "  cat ~/.ssh/id_rsa.pub"
-                echo "Copy the output and add it to: ~/.ssh/authorized_keys on this server"
-                echo ""
-                read -p "Press Enter after adding the key..."
-            fi
-
-            # Test connection
-            print_info "Testing SSH connection to local machine..."
-            if ssh -o BatchMode=yes "$local_user@$server_ip" "echo 'Connection successful'" 2>/dev/null; then
-                print_success "SSH connection working!"
-            else
-                print_error "SSH connection failed. Please check your credentials."
-                exit 1
-            fi
-
-            # Get zip file location on local machine
-            echo ""
-            echo "Where is the Mullvad zip file on your LOCAL computer?"
-            read -p "Local file path (e.g., ~/Downloads/mullvad_wireguard.zip): " local_zip_path
-            local_zip_path="${local_zip_path/#\~/$HOME}"
-
-            # Transfer file
-            echo ""
-            print_info "Transferring zip file..."
-            local dest_path="/tmp/mullvad_wireguard_$(date +%s).zip"
-
-            if scp "$local_user@$server_ip:$local_zip_path" "$dest_path" 2>/dev/null; then
-                WIREGUARD_ZIP_PATH="$dest_path"
-                print_success "File transferred successfully!"
-            else
-                error_exit "Failed to transfer zip file"
-            fi
-            ;;
-        3)
-            # Manual method
-            echo ""
-            print_info "Manual method selected"
-            echo ""
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "MANUAL TRANSFER INSTRUCTIONS:"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo ""
-            echo "1. Download Mullvad zip from your local computer:"
-            echo "   ${GREEN}https://mullvad.net/en/account/#/wireguard-config${NC}"
-            echo ""
-            echo "2. Transfer to this server using one of these methods:"
-            echo ""
-            echo "   Method A - SCP (from your local computer):"
-            echo "   scp mullvad_wireguard.zip user@SERVER_IP:/tmp/"
-            echo ""
-            echo "   Method B - SFTP (from your local computer):"
-            echo "   sftp user@SERVER_IP"
-            echo "   sftp> put mullvad_wireguard.zip /tmp/"
-            echo ""
-            echo "   Method C - Upload to cloud and download:"
-            echo "   curl -L -o /tmp/mullvad_wireguard.zip YOUR_DOWNLOAD_URL"
-            echo ""
-            echo "3. After transfer, the file should be at:"
-            echo "   /tmp/mullvad_wireguard.zip"
-            echo ""
-            read -p "Press Enter after transferring the file..."
-
-            # Check common locations
-            WIREGUARD_ZIP_PATH=""
-            for path in /tmp/mullvad_wireguard*.zip ~/mullvad_wireguard*.zip $(pwd)/mullvad_wireguard*.zip; do
-                if [[ -f "$path" ]]; then
-                    WIREGUARD_ZIP_PATH="$path"
-                    break
-                fi
-            done
-
-            if [[ -z "$WIREGUARD_ZIP_PATH" ]]; then
-                echo ""
-                read -p "Enter the exact path to the zip file: " WIREGUARD_ZIP_PATH
-                WIREGUARD_ZIP_PATH="${WIREGUARD_ZIP_PATH/#\~/$HOME}"
-
-                if [[ ! -f "$WIREGUARD_ZIP_PATH" ]]; then
-                    error_exit "Zip file not found: $WIREGUARD_ZIP_PATH"
-                fi
-            fi
-            ;;
-        *)
-            error_exit "Invalid option selected"
-            ;;
-    esac
+    echo "${GREEN}Step 4:${NC} Copy the ENTIRE contents of the .conf file"
+    echo ""
+    echo "${GREEN}Step 5:${NC} Paste it below when prompted"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Press Enter to continue and paste your configuration..."
+    read -r
 
     echo ""
-    print_info "Using zip file: $WIREGUARD_ZIP_PATH"
-
-    # Extract Wireguard credentials using embedded function
+    echo "Paste your .conf file contents below and press Ctrl+D when done:"
+    echo "(Ctrl+D = EOF = End of input)"
     echo ""
-    print_info "Extracting Wireguard configuration from zip file..."
 
-    # Call embedded function to extract credentials
-    if ! configure_wireguard_from_zip "$WIREGUARD_ZIP_PATH"; then
+    # Read multiline input until EOF (Ctrl+D)
+    WIREGUARD_CONF_CONTENT=$(cat)
+
+    if [[ -z "$WIREGUARD_CONF_CONTENT" ]]; then
+        error_exit "No configuration content provided. Please try again."
+    fi
+
+    # Validate that it looks like a Wireguard config
+    if ! echo "$WIREGUARD_CONF_CONTENT" | grep -q "PrivateKey"; then
+        error_exit "Invalid configuration: PrivateKey not found. Please paste the entire .conf file."
+    fi
+
+    if ! echo "$WIREGUARD_CONF_CONTENT" | grep -q "Address"; then
+        error_exit "Invalid configuration: Address not found. Please paste the entire .conf file."
+    fi
+
+    echo ""
+    print_info "Configuration received. Extracting credentials..."
+
+    # Call function to parse pasted content
+    if ! configure_wireguard_from_paste "$WIREGUARD_CONF_CONTENT"; then
         error_exit "Failed to extract Wireguard configuration"
     fi
 
@@ -877,7 +750,7 @@ configure_arrmematey() {
     MULLVAD_ACCOUNT_ID="${MULLVAD_ACCOUNT_ID:-}"
 
     if [[ -z "$WIREGUARD_PRIVATE_KEY" ]] || [[ -z "$WIREGUARD_ADDRESSES" ]]; then
-        error_exit "Failed to extract Wireguard credentials from zip file"
+        error_exit "Failed to extract Wireguard credentials from pasted configuration"
     fi
 
     # VPN Location
