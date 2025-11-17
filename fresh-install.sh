@@ -157,8 +157,8 @@ services:
     cap_add: [NET_ADMIN]
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
-      - VPN_TYPE=wireguard
-      - MULLVAD_USER=${MULLVAD_ACCOUNT_ID}
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${OPENVPN_USER:-${MULLVAD_ACCOUNT_ID}}
       - SERVER_Countries=${MULLVAD_COUNTRY:-us}
       - SERVER_Cities=${MULLVAD_CITY:-ny}
       - TZ=${TZ:-UTC}
