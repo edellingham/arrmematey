@@ -22,17 +22,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/
 - ✅ Installs Docker if missing
 - ✅ Checks system resources (RAM, CPU, storage)
 - ✅ Clones Arrmematey repository
-- ✅ Interactive Mullvad zip file transfer (3 options)
-- ✅ Automatic Wireguard credential extraction
+- ✅ Simple copy/paste Wireguard configuration
+- ✅ Automatic credential extraction
 - ✅ Interactive configuration for VPN location and directories
 - ✅ Creates directory structure
 - ✅ Builds UI Docker image
 - ✅ Starts all services automatically
 
-**Mullvad Zip File Transfer Options:**
-1. **Local file** - File already on server
-2. **SSH transfer** - Automated transfer from your computer
-3. **Manual** - Follow instructions to transfer yourself
+**Wireguard Setup Process:**
+1. **Download** Mullvad Wireguard zip from your local computer
+2. **Extract** the zip and open the .conf file
+3. **Copy** the entire .conf file contents
+4. **Paste** into the installer when prompted
+5. **Done!** Installer extracts credentials automatically
 
 **Requirements:** Docker, curl, and a Mullvad VPN account
 
