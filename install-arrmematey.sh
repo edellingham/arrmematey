@@ -9,7 +9,7 @@
 set -euo pipefail
 
 # Version
-VERSION="2.19.0"
+VERSION="2.20.0"
 
 # Color codes
 RED='\033[0;31m'
@@ -83,7 +83,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.18.0${PURPLE}  |  Date: ${GREEN}2025-11-17${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.20.0${PURPLE}  |  Date: ${GREEN}2025-11-17${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -281,75 +281,8 @@ install_docker() {
     fi
 }
 ###############################################################################
-# Wireguard Configuration Functions (embedded from wireguard-setup.sh)
+# Wireguard Configuration Functions (updated for individual questions)
 ###############################################################################
-
-# Function to parse pasted Wireguard conf content
-parse_pasted_wireguard_conf() {
-    local conf_content="$1"
-
-    print_info "Parsing pasted configuration..."
-
-    # Create temp file for parsing
-    local temp_conf="/tmp/mullvad_wireguard_temp_$$.conf"
-    echo "$conf_content" > "$temp_conf"
-
-    # Extract PrivateKey
-    local private_key=$(grep "^PrivateKey" "$temp_conf" | awk '{print $3}')
-
-    if [[ -z "$private_key" ]]; then
-        print_error "Could not find PrivateKey in pasted content"
-        rm -f "$temp_conf"
-        return 1
-    fi
-
-    # Extract Address (IPv4 only, before comma)
-    local address=$(grep "^Address" "$temp_conf" | awk '{print $3}' | cut -d',' -f1)
-
-    if [[ -z "$address" ]]; then
-        print_error "Could not find Address in pasted content"
-        rm -f "$temp_conf"
-        return 1
-    fi
-
-    # Cleanup temp file
-    rm -f "$temp_conf"
-
-    print_success "Extracted configuration:"
-    print_info "  PrivateKey: ${private_key:0:20}..."
-    print_info "  Address: $address"
-
-    echo "$private_key|$address"
-}
-
-# Function to parse Wireguard conf file
-parse_wireguard_conf() {
-    local conf_file="$1"
-
-    print_info "Parsing configuration file..."
-
-    # Extract PrivateKey
-    local private_key=$(grep "^PrivateKey" "$conf_file" | awk '{print $3}')
-
-    if [[ -z "$private_key" ]]; then
-        print_error "Could not find PrivateKey in conf file"
-        return 1
-    fi
-
-    # Extract Address (IPv4 only, before comma)
-    local address=$(grep "^Address" "$conf_file" | awk '{print $3}' | cut -d',' -f1)
-
-    if [[ -z "$address" ]]; then
-        print_error "Could not find Address in conf file"
-        return 1
-    fi
-
-    print_success "Extracted configuration:"
-    print_info "  PrivateKey: ${private_key:0:20}..."
-    print_info "  Address: $address"
-
-    echo "$private_key|$address"
-}
 
 # Function to update docker-compose.yml with Wireguard credentials
 update_wireguard_config() {
@@ -385,66 +318,6 @@ update_wireguard_config() {
 
     print_success "docker-compose.yml updated with Wireguard credentials"
 }
-
-# Function to configure Wireguard from pasted conf content
-configure_wireguard_from_paste() {
-    local conf_content="$1"
-
-    if [[ -z "$conf_content" ]]; then
-        print_error "No configuration content provided"
-        return 1
-    fi
-
-    # Parse pasted conf content
-    local parse_result
-    parse_result=$(parse_pasted_wireguard_conf "$conf_content")
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    local private_key="${parse_result%|*}"
-    local address="${parse_result#*|}"
-
-    # Update docker-compose.yml
-    update_wireguard_config "$private_key" "$address"
-
-    # Update .env file
-    local env_file="$HOME/.env"
-    if [[ ! -f "$env_file" ]]; then
-        cat > "$env_file" <<EOF
-# Arrmematey Configuration
-PUID=$(id -u)
-PGID=$(id -g)
-TZ=UTC
-
-# VPN Configuration
-VPN_TYPE=wireguard
-EOF
-    fi
-
-    # Update or add Wireguard variables
-    update_env_var() {
-        local var_name="$1"
-        local var_value="$2"
-
-        if grep -q "^${var_name}=" "$env_file"; then
-            sed -i "s|^${var_name}=.*|${var_name}=${var_value}|" "$env_file"
-        else
-            echo "${var_name}=${var_value}" >> "$env_file"
-        fi
-    }
-
-    update_env_var "WIREGUARD_PRIVATE_KEY" "$private_key"
-    update_env_var "WIREGUARD_ADDRESSES" "$address"
-    update_env_var "VPN_TYPE" "wireguard"
-
-    print_success "Wireguard configuration complete"
-    print_info "Private Key: ${private_key:0:20}..."
-    print_info "Address: $address"
-
-    return 0
-}
-
 
 ###############################################################################
 # Arrmematey Installation
@@ -605,76 +478,6 @@ detect_existing_media() {
     echo "$detected_path"
 }
 
-# Function to check if a directory contains media by looking for common subdirectory patterns
-check_media_patterns() {
-    local base_dir="$1"
-    local has_media=0
-    local has_downloads=0
-    local pattern_matches=()
-
-    # Check for Downloads/Usenet/Torrents patterns (case insensitive)
-    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(downloads?|usenet|torrents?)$" > /dev/null; then
-        has_downloads=1
-        pattern_matches+=("Downloads")
-    fi
-
-    # Check for Movies/Films patterns
-    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(movies?|films?)$" > /dev/null; then
-        has_media=1
-        pattern_matches+=("Movies")
-    fi
-
-    # Check for TV patterns
-    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(tv( shows?)?|tvshows?|series)$" > /dev/null; then
-        has_media=1
-        pattern_matches+=("TV Shows")
-    fi
-
-    # Check for Music/Audio patterns
-    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(music|audio|songs?)$" > /dev/null; then
-        has_media=1
-        pattern_matches+=("Music")
-    fi
-
-    # Return result
-    if [[ $has_media -eq 1 ]] || [[ $has_downloads -eq 1 ]]; then
-        echo "1"
-    else
-        echo "0"
-    fi
-}
-
-# Enhanced function to find media directories with pattern matching
-find_media_directories() {
-    local base_dir="$1"
-    local media_subdir=""
-    local downloads_subdir=""
-
-    # Find Downloads/Usenet/Torrents directory
-    for dir in Downloads downloads Usenet usenet Torrents torrents; do
-        if [[ -d "$base_dir/$dir" ]]; then
-            downloads_subdir="$base_dir/$dir"
-            break
-        fi
-    done
-
-    # Find Media directory (various naming patterns)
-    for dir in Media media Movies movies TV\ Shows TV\ Shows tv\ shows tvshows TV TV series Series; do
-        if [[ -d "$base_dir/$dir" ]]; then
-            media_subdir="$base_dir/$dir"
-            break
-        fi
-    done
-
-    # If no standard "Media" dir, check if base dir itself contains media patterns
-    if [[ -z "$media_subdir" ]] && check_media_patterns "$base_dir" | grep -q "1"; then
-        media_subdir="$base_dir"
-    fi
-
-    # Return both paths
-    echo "$downloads_subdir|$media_subdir"
-}
-
 configure_arrmematey() {
     print_step "Configuring Arrmematey..."
 
@@ -687,11 +490,7 @@ configure_arrmematey() {
     print_info "Please configure your Arrmematey installation:"
     echo ""
 
-    # Wireguard Zip File Configuration
-    echo ""
-    print_info "Wireguard Configuration (Mullvad OpenVPN removed January 2026)"
-    echo ""
-    echo "Arrmematey now uses Wireguard-only for VPN connectivity."
+    # Wireguard Individual Questions
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo -e "${CYAN}📋 MULLVAD WIREGUARD CONFIGURATION${NC}"
@@ -702,59 +501,50 @@ configure_arrmematey() {
     echo "${GREEN}Step 1:${NC} Download your Wireguard zip from:"
     echo "         ${GREEN}https://mullvad.net/en/account/#/wireguard-config${NC}"
     echo ""
-    echo "${GREEN}Step 2:${NC} Extract the zip file on your computer"
+    echo "${GREEN}Step 2:${NC} Extract zip file on your computer"
     echo ""
     echo "${GREEN}Step 3:${NC} Open any .conf file in a text editor"
     echo ""
-    echo "${GREEN}Step 4:${NC} Copy the ENTIRE contents of the .conf file"
-    echo ""
-    echo "${GREEN}Step 5:${NC} Paste it below when prompted"
+    echo "${GREEN}Step 4:${NC} Answer following questions with values from your .conf file"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "Press Enter to continue and paste your configuration..."
+    echo "Press Enter to continue and provide your Wireguard credentials..."
     read -r
 
+    # Collect PrivateKey
     echo ""
-    echo "Paste your .conf file contents below and press Ctrl+D when done:"
-    echo "(Ctrl+D = EOF = End of input)"
+    echo "What's your Wireguard Private Key?"
+    echo "Find this in [Interface] section of your .conf file"
+    echo -n "PrivateKey: "
+    read -r WIREGUARD_PRIVATE_KEY
+
+    # Validate PrivateKey
+    while [[ -z "$WIREGUARD_PRIVATE_KEY" ]]; do
+        echo -e "${RED}Private Key is required${NC}"
+        echo -n "PrivateKey: "
+        read -r WIREGUARD_PRIVATE_KEY
+    done
+
+    # Collect Address
     echo ""
+    echo "What's your Wireguard Address?"
+    echo "Find this in [Interface] section of your .conf file"
+    echo -n "Address (IPv4 only, before comma): "
+    read -r WIREGUARD_ADDRESS
 
-    # Read multiline input until EOF (Ctrl+D)
-    WIREGUARD_CONF_CONTENT=$(cat)
+    # Validate Address
+    while [[ -z "$WIREGUARD_ADDRESS" ]]; do
+        echo -e "${RED}Address is required${NC}"
+        echo -n "Address (IPv4 only, before comma): "
+        read -r WIREGUARD_ADDRESS
+    done
 
-    if [[ -z "$WIREGUARD_CONF_CONTENT" ]]; then
-        error_exit "No configuration content provided. Please try again."
-    fi
-
-    # Validate that it looks like a Wireguard config
-    if ! echo "$WIREGUARD_CONF_CONTENT" | grep -q "PrivateKey"; then
-        error_exit "Invalid configuration: PrivateKey not found. Please paste the entire .conf file."
-    fi
-
-    if ! echo "$WIREGUARD_CONF_CONTENT" | grep -q "Address"; then
-        error_exit "Invalid configuration: Address not found. Please paste the entire .conf file."
-    fi
-
+    # Show extracted values
     echo ""
-    print_info "Configuration received. Extracting credentials..."
-
-    # Call function to parse pasted content
-    if ! configure_wireguard_from_paste "$WIREGUARD_CONF_CONTENT"; then
-        error_exit "Failed to extract Wireguard configuration"
-    fi
-
-    print_success "Wireguard configuration extracted successfully"
-
-    # Load extracted configuration from .env
-    source ~/.env
-    WIREGUARD_PRIVATE_KEY="${WIREGUARD_PRIVATE_KEY:-}"
-    WIREGUARD_ADDRESSES="${WIREGUARD_ADDRESSES:-}"
-    MULLVAD_ACCOUNT_ID="${MULLVAD_ACCOUNT_ID:-}"
-
-    if [[ -z "$WIREGUARD_PRIVATE_KEY" ]] || [[ -z "$WIREGUARD_ADDRESSES" ]]; then
-        error_exit "Failed to extract Wireguard credentials from pasted configuration"
-    fi
+    print_success "Wireguard configuration collected:"
+    print_info "  PrivateKey: ${WIREGUARD_PRIVATE_KEY:0:20}..."
+    print_info "  Address: $WIREGUARD_ADDRESS"
 
     # VPN Location
     echo ""
@@ -772,6 +562,9 @@ configure_arrmematey() {
     echo -n "VPN City code [ny]: "
     read -r MULLVAD_CITY
     [[ -z "$MULLVAD_CITY" ]] && MULLVAD_CITY="ny"
+
+    # Set addresses for compatibility
+    WIREGUARD_ADDRESSES="$WIREGUARD_ADDRESS"
 
     # Media directory detection
     echo ""
@@ -800,7 +593,7 @@ configure_arrmematey() {
                 echo "  • Media: $media_path"
                 ls -la "$media_path" 2>/dev/null | grep -E "^d" | awk '{print "    - " $9}' | head -5
             elif [[ -n "$media_path" ]] && [[ "$media_path" == "$existing_media" ]]; then
-                # If media_path is the base dir, show its contents
+                # If media_path is base dir, show its contents
                 echo "  • Media Structure: $existing_media"
                 echo "    (Multiple media types detected)"
                 ls -la "$existing_media" 2>/dev/null | grep -E "^d" | grep -v "^\." | awk '{print "    - " $9}' | head -8
@@ -864,28 +657,136 @@ configure_arrmematey() {
     # Update .env file
     print_info "Updating configuration..."
 
-    # Configuration already updated by embedded Wireguard function
-    # Just verify the values are set
-    if grep -q "^WIREGUARD_PRIVATE_KEY=" "$env_file" && grep -q "^WIREGUARD_ADDRESSES=" "$env_file"; then
-        print_success "Wireguard credentials configured"
-    else
-        error_exit "Wireguard configuration incomplete"
-    fi
+    # Update .env file with new values
+    cat > "$env_file" <<EOF
+# Arrmematey Configuration
+# Generated by Arrmematey Installer
 
-    sed -i "s|CONFIG_PATH=.*|CONFIG_PATH=$CONFIG_PATH|" "$env_file"
-    sed -i "s|MEDIA_PATH=.*|MEDIA_PATH=$MEDIA_PATH|" "$env_file"
-    sed -i "s|DOWNLOADS_PATH=.*|DOWNLOADS_PATH=$DOWNLOADS_PATH|" "$env_file"
+# User Configuration
+PUID=$(id -u)
+PGID=$(id -g)
+TZ=UTC
 
-    sed -i "s|MOVIES_PATH=.*|MOVIES_PATH=$MEDIA_PATH/Movies|" "$env_file"
-    sed -i "s|TV_PATH=.*|TV_PATH=$MEDIA_PATH/TV|" "$env_file"
-    sed -i "s|MUSIC_PATH=.*|MUSIC_PATH=$MEDIA_PATH/Music|" "$env_file"
+# Mullvad VPN Configuration
+MULLVAD_ACCOUNT_ID=
+MULLVAD_COUNTRY=$MULLVAD_COUNTRY
+MULLVAD_CITY=$MULLVAD_CITY
 
-    sed -i "s|USENET_PATH=.*|USENET_PATH=$DOWNLOADS_PATH/usenet|" "$env_file"
-    sed -i "s|TORRENTS_PATH=.*|TORRENTS_PATH=$DOWNLOADS_PATH/torrents|" "$env_file"
+# VPN Type: Wireguard only (OpenVPN removed January 2026)
+VPN_TYPE=wireguard
+
+# Wireguard credentials (extract from Mullvad zip file)
+WIREGUARD_PRIVATE_KEY=$WIREGUARD_PRIVATE_KEY
+WIREGUARD_ADDRESSES=$WIREGUARD_ADDRESS
+
+# Port Configuration
+MANAGEMENT_UI_PORT=8787
+PROWLARR_PORT=9696
+SONARR_PORT=8989
+RADARR_PORT=7878
+LIDARR_PORT=8686
+SABNZBD_PORT=8080
+QBITTORRENT_PORT=8081
+JELLYSEERR_PORT=5055
+
+# Directory Configuration (using /data for storage)
+CONFIG_PATH=$CONFIG_PATH
+MEDIA_PATH=$MEDIA_PATH
+DOWNLOADS_PATH=$DOWNLOADS_PATH
+
+# Media Paths
+MOVIES_PATH=$MEDIA_PATH/Movies
+TV_PATH=$MEDIA_PATH/TV
+MUSIC_PATH=$MEDIA_PATH/Music
+
+# Download Paths
+USENET_PATH=$DOWNLOADS_PATH/usenet
+TORRENTS_PATH=$DOWNLOADS_PATH/torrents
+
+# Service Passwords (change these!)
+SABNZBD_PASSWORD=arrmematey_secure
+JELLYSEERR_PASSWORD=arrmematey_secure
+
+# Optional: Fanart.tv API Key (for movie backdrops)
+FANART_API_KEY=
+
+# Optional: Cloudflare Tunnel
+CLOUDFLARE_TOKEN=
+EOF
 
     print_success "Configuration saved"
     print_info "Media Path: $MEDIA_PATH"
     print_info "Downloads Path: $DOWNLOADS_PATH"
+}
+
+# Function to find media directories with pattern matching
+find_media_directories() {
+    local base_dir="$1"
+    local media_subdir=""
+    local downloads_subdir=""
+
+    # Find Downloads/Usenet/Torrents directory
+    for dir in Downloads downloads Usenet usenet Torrents torrents; do
+        if [[ -d "$base_dir/$dir" ]]; then
+            downloads_subdir="$base_dir/$dir"
+            break
+        fi
+    done
+
+    # Find Media directory (various naming patterns)
+    for dir in Media media Movies movies TV\ Shows TV\ Shows tv\ shows tvshows TV TV series Series; do
+        if [[ -d "$base_dir/$dir" ]]; then
+            media_subdir="$base_dir/$dir"
+            break
+        fi
+    done
+
+    # If no standard "Media" dir, check if base dir itself contains media patterns
+    if [[ -z "$media_subdir" ]] && check_media_patterns "$base_dir" | grep -q "1"; then
+        media_subdir="$base_dir"
+    fi
+
+    # Return both paths
+    echo "$downloads_subdir|$media_subdir"
+}
+
+# Function to check if a directory contains media by looking for common subdirectory patterns
+check_media_patterns() {
+    local base_dir="$1"
+    local has_media=0
+    local has_downloads=0
+    local pattern_matches=()
+
+    # Check for Downloads/Usenet/Torrents patterns (case insensitive)
+    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(downloads?|usenet|torrents?)$" > /dev/null; then
+        has_downloads=1
+        pattern_matches+=("Downloads")
+    fi
+
+    # Check for Movies/Films patterns
+    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(movies?|films?)$" > /dev/null; then
+        has_media=1
+        pattern_matches+=("Movies")
+    fi
+
+    # Check for TV patterns
+    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(tv( shows?)?|tvshows?|series)$" > /dev/null; then
+        has_media=1
+        pattern_matches+=("TV Shows")
+    fi
+
+    # Check for Music/Audio patterns
+    if ls -1 "$base_dir" 2>/dev/null | grep -iE "^(music|audio|songs?)$" > /dev/null; then
+        has_media=1
+        pattern_matches+=("Music")
+    fi
+
+    # Return result
+    if [[ $has_media -eq 1 ]] || [[ $has_downloads -eq 1 ]]; then
+        echo "1"
+    else
+        echo "0"
+    fi
 }
 
 create_directories() {
@@ -1014,171 +915,6 @@ create_directories() {
             fi
         done
     fi
-
-    # Validate symlinks after creation
-    if [[ -n "${USE_EXISTING_MEDIA:-}" ]] || [[ -n "${USE_EXISTING_DOWNLOADS:-}" ]]; then
-        validate_symlinks
-    fi
-}
-
-# Function to validate symlinks are working correctly
-validate_symlinks() {
-    print_step "Validating symlink integrity..."
-
-    local broken_symlinks=0
-    local symlink_count=0
-
-    # Check all symlinks in /data/arrmematey
-    find /data/arrmematey -type l -print0 2>/dev/null | while IFS= read -r -d '' symlink; do
-        symlink_count=$((symlink_count + 1))
-
-        # Check if symlink target exists
-        if [[ ! -e "$symlink" ]]; then
-            print_error "BROKEN SYMLINK: $symlink"
-            print_error "  → Target does not exist: $(readlink "$symlink")"
-            broken_symlinks=$((broken_symlinks + 1))
-        fi
-    done
-
-    # Check filesystem compatibility
-    check_filesystem_compatibility
-
-    # Check permissions
-    check_directory_permissions
-
-    if [[ $broken_symlinks -gt 0 ]]; then
-        echo ""
-        print_error "Found $broken_symlinks broken symlink(s)!"
-        echo ""
-        print_info "This usually means the source directory was moved or deleted."
-        print_info "Please restore the source directories and re-run the installer."
-        echo ""
-        error_exit "Symlink validation failed"
-    else
-        print_success "All symlinks validated successfully"
-        if [[ $symlink_count -gt 0 ]]; then
-            print_info "Checked $symlink_count symlink(s)"
-        fi
-    fi
-}
-
-# Function to check filesystem compatibility
-check_filesystem_compatibility() {
-    print_info "Checking filesystem compatibility..."
-
-    # Check if /data and source directories exist
-    if [[ ! -d "/data/arrmematey" ]] || [[ ! -d "${EXISTING_MEDIA_PATH:-$EXISTING_DOWNLOADS_PATH}" ]]; then
-        return 0
-    fi
-
-    # Get device numbers
-    local data_dev=$(stat -c %d "/data/arrmematey" 2>/dev/null || echo "0")
-    local media_dev=$(stat -c %d "${EXISTING_MEDIA_PATH}" 2>/dev/null || echo "0")
-    local downloads_dev=$(stat -c %d "${EXISTING_DOWNLOADS_PATH}" 2>/dev/null || echo "0")
-
-    local cross_filesystem=0
-
-    if [[ $media_dev -ne 0 ]] && [[ $data_dev -ne 0 ]] && [[ $media_dev -ne $data_dev ]]; then
-        print_warning "Media directory is on different filesystem than /data"
-        cross_filesystem=1
-    fi
-
-    if [[ $downloads_dev -ne 0 ]] && [[ $data_dev -ne 0 ]] && [[ $downloads_dev -ne $data_dev ]]; then
-        print_warning "Downloads directory is on different filesystem than /data"
-        cross_filesystem=1
-    fi
-
-    if [[ $cross_filesystem -eq 1 ]]; then
-        echo ""
-        print_warning "⚠️  Cross-Filesystem Symlinks Detected"
-        print_info "Some directories are on different filesystems."
-        print_info "This is usually OK, but symlinks on different filesystems may have:"
-        print_info "  • Slightly more CPU overhead"
-        print_info "  • Potential reliability issues with network storage (NFS/CIFS)"
-        print_info "  • Different performance characteristics"
-        echo ""
-        read -p "Continue anyway? (Y/n): " -n 1 -r
-        echo ""
-        if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ ! -z $REPLY ]]; then
-            error_exit "Aborted by user"
-        fi
-    else
-        print_success "All directories are on compatible filesystems"
-    fi
-}
-
-# Function to check directory permissions
-check_directory_permissions() {
-    print_info "Checking directory permissions..."
-
-    # Get current PUID/PGID
-    local current_uid=$(id -u)
-    local current_gid=$(id -g)
-
-    # Check if we have read access to source directories
-    local permission_issues=0
-
-    if [[ -n "${EXISTING_MEDIA_PATH:-}" ]] && [[ -d "$EXISTING_MEDIA_PATH" ]]; then
-        if [[ ! -r "$EXISTING_MEDIA_PATH" ]]; then
-            print_warning "No read permission for: $EXISTING_MEDIA_PATH"
-            permission_issues=1
-        fi
-    fi
-
-    if [[ -n "${EXISTING_DOWNLOADS_PATH:-}" ]] && [[ -d "$EXISTING_DOWNLOADS_PATH" ]]; then
-        if [[ ! -r "$EXISTING_DOWNLOADS_PATH" ]]; then
-            print_warning "No read permission for: $EXISTING_DOWNLOADS_PATH"
-            permission_issues=1
-        fi
-    fi
-
-    if [[ -n "${PUID:-}" ]] && [[ -n "${PGID:-}" ]]; then
-        if [[ $PUID -ne $current_uid ]] || [[ $PGID -ne $current_gid ]]; then
-            print_warning "PUID/PGID ($PUID:$PGID) differs from current user ($current_uid:$current_gid)"
-            print_info "Ensure Docker containers run with correct PUID/PGID"
-            print_info "Check docker-compose.yml has 'user: ${PUID:-}:${PGID:-}' set"
-        fi
-    fi
-
-    if [[ $permission_issues -eq 1 ]]; then
-        echo ""
-        print_warning "Permission issues detected with source directories"
-        print_info "This may cause problems when Docker containers try to access media"
-        print_info "Consider running: chmod -R 755 $EXISTING_MEDIA_PATH $EXISTING_DOWNLOADS_PATH"
-        echo ""
-        read -p "Continue anyway? (Y/n): " -n 1 -r
-        echo ""
-        if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ ! -z $REPLY ]]; then
-            error_exit "Aborted by user"
-        fi
-    else
-        print_success "Directory permissions look OK"
-    fi
-}
-
-# Function to show symlink status
-show_symlink_status() {
-    echo ""
-    echo -e "${CYAN}📋 Symlink Status:${NC}"
-    echo ""
-
-    if [[ -d "/data/arrmematey/Media" ]]; then
-        echo -e "${BLUE}Media Directories:${NC}"
-        ls -lah /data/arrmematey/Media/ 2>/dev/null | grep "^l" | awk '{print "  " $0}' || echo "  No symlinks found"
-        echo ""
-    fi
-
-    if [[ -d "/data/arrmematey/Downloads" ]]; then
-        echo -e "${BLUE}Download Directories:${NC}"
-        ls -lah /data/arrmematey/Downloads/ 2>/dev/null | grep "^l" | awk '{print "  " $0}' || echo "  No symlinks found"
-        echo ""
-    fi
-
-    echo -e "${YELLOW}💡 Tip: You can monitor progress in real-time:${NC}"
-    echo "  • Docker shows progress bars during image downloads"
-    echo "  • You'll see package names during installation"
-    echo "  • Spinner indicates activity during other operations"
-    echo ""
 }
 
 ###############################################################################
@@ -1261,178 +997,6 @@ start_services() {
     # Check status
     print_step "Checking service status..."
     docker compose ps
-}
-
-# Function to wait for service to be ready
-wait_for_service() {
-    local service_name=$1
-    local port=$2
-    local max_attempts=30
-    local attempt=0
-
-    print_info "Waiting for $service_name to be ready..."
-    while [[ $attempt -lt $max_attempts ]]; do
-        if curl -s "http://localhost:$port" > /dev/null 2>&1; then
-            print_success "$service_name is ready"
-            return 0
-        fi
-        attempt=$((attempt + 1))
-        sleep 5
-    done
-
-    print_warning "$service_name may not be fully ready"
-    return 1
-}
-
-# Function to configure service via API
-configure_service_via_api() {
-    local service_name=$1
-    local port=$2
-    local api_endpoint=$3
-    local api_data=$4
-    local max_attempts=10
-    local attempt=0
-
-    while [[ $attempt -lt $max_attempts ]]; do
-        if curl -s -X POST "http://localhost:$port$api_endpoint" \
-            -H "Content-Type: application/json" \
-            -d "$api_data" > /dev/null 2>&1; then
-            print_success "Configured $service_name"
-            return 0
-        fi
-        attempt=$((attempt + 1))
-        sleep 3
-    done
-
-    print_warning "Could not fully configure $service_name (may need manual setup)"
-    return 1
-}
-
-# Function to configure media library paths
-configure_media_libraries() {
-    print_step "Configuring Media Libraries..."
-
-    source ~/.env
-
-    # Wait for services
-    wait_for_service "Prowlarr" "$PROWLARR_PORT"
-    wait_for_service "Sonarr" "$SONARR_PORT"
-    wait_for_service "Radarr" "$RADARR_PORT"
-    wait_for_service "Lidarr" "$LIDARR_PORT"
-
-    print_info "Configuring Sonarr (TV Shows)..."
-    # Sonarr - Add TV path
-    configure_service_via_api "Sonarr" "$SONARR_PORT" "/api/rootfolder" \
-        "{\"path\": \"$TV_PATH\"}" 2>/dev/null || print_warning "Sonarr may need manual library setup"
-
-    print_info "Configuring Radarr (Movies)..."
-    # Radarr - Add Movies path
-    configure_service_via_api "Radarr" "$RADARR_PORT" "/api/rootfolder" \
-        "{\"path\": \"$MOVIES_PATH\"}" 2>/dev/null || print_warning "Radarr may need manual library setup"
-
-    print_info "Configuring Lidarr (Music)..."
-    # Lidarr - Add Music path
-    configure_service_via_api "Lidarr" "$LIDARR_PORT" "/api/v1/rootfolder" \
-        "{\"path\": \"$MUSIC_PATH\"}" 2>/dev/null || print_warning "Lidarr may need manual library setup"
-
-    print_success "Media library paths configured"
-}
-
-# Function to configure download clients
-configure_download_clients() {
-    print_step "Configuring Download Clients..."
-
-    source ~/.env
-
-    print_info "Configuring SABnzbd..."
-    # SABnzbd will use default config on first run
-    print_info "SABnzbd will auto-configure on first access"
-
-    print_info "Configuring qBittorrent..."
-    # qBittorrent will use default config on first run
-    print_info "qBittorrent will auto-configure on first access"
-
-    print_success "Download clients ready for configuration"
-}
-
-# Function to display automation completion
-display_automation_status() {
-    print_step "Automation Setup Complete!"
-
-    source ~/.env
-
-    echo ""
-    echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  🎯 POST-INSTALLATION CONFIGURATION REQUIRED:${NC}"
-    echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "${YELLOW}To complete the setup, you need to:${NC}"
-    echo ""
-    echo -e "${BLUE}1. Prowlarr (http://localhost:$PROWLARR_PORT)${NC}"
-    echo "   → Add your indexers (NZB/Torrent providers)"
-    echo "   → The API key will be needed for Sonarr/Radarr/Lidarr"
-    echo ""
-    echo -e "${BLUE}2. SABnzbd (http://localhost:$SABNZBD_PORT)${NC}"
-    echo "   → Username: arrmematey"
-    echo "   → Password: $SABNZBD_PASSWORD"
-    echo "   → Configure your news server (host, port, SSL, username, password)"
-    echo "   → Configure categories for Sonarr/Radarr"
-    echo ""
-    echo -e "${BLUE}3. qBittorrent (http://localhost:$QBITTORRENT_PORT)${NC}"
-    echo "   → Configure Web UI (username: admin, password: $QBITTORRENT_PORT)"
-    echo "   → Set download directory to: $TORRENTS_PATH"
-    echo "   → Configure category saves for Sonarr/Radarr"
-    echo ""
-    echo -e "${BLUE}4. Sonarr (http://localhost:$SONARR_PORT)${NC}"
-    echo "   → Settings → Indexers → Add Prowlarr"
-    echo "   → Settings → Download Clients → Add SABnzbd & qBittorrent"
-    echo ""
-    echo -e "${BLUE}5. Radarr (http://localhost:$RADARR_PORT)${NC}"
-    echo "   → Settings → Indexers → Add Prowlarr"
-    echo "   → Settings → Download Clients → Add SABnzbd & qBittorrent"
-    echo ""
-    echo -e "${BLUE}6. Lidarr (http://localhost:$LIDARR_PORT)${NC}"
-    echo "   → Settings → Indexers → Add Prowlarr"
-    echo "   → Settings → Download Clients → Add SABnzbd & qBittorrent"
-    echo ""
-    echo -e "${CYAN}📝 All paths have been automatically configured:${NC}"
-    echo "   • Config: $CONFIG_PATH"
-    echo "   • Movies: $MOVIES_PATH"
-    echo "   • TV: $TV_PATH"
-    echo "   • Music: $MUSIC_PATH"
-    echo "   • Downloads: $DOWNLOADS_PATH"
-    echo ""
-    echo -e "${GREEN}🔗 Directory Structure:${NC}"
-    echo "   All Arrmematey data is organized under /data/arrmematey/"
-    echo "   Existing media is linked via symlinks"
-    echo "   This keeps Docker volumes clean and organized"
-    echo ""
-
-    # Show symlink status if any were created
-    if [[ -n "${USE_EXISTING_MEDIA:-}" ]] || [[ -n "${USE_EXISTING_DOWNLOADS:-}" ]]; then
-        show_symlink_status
-    fi
-}
-
-automate_stack_configuration() {
-    print_step "Automating Stack Configuration..."
-
-    # Wait for services to be fully ready
-    print_info "Waiting for all services to start..."
-    sleep 30
-
-    # Run enhanced auto-configuration
-    print_info "Running enhanced auto-configuration..."
-    if [[ -f "/opt/arrmematey/auto-configure-enhanced.sh" ]]; then
-        cd /opt/arrmematey
-        bash /opt/arrmematey/auto-configure-enhanced.sh
-    else
-        # Fallback to basic configuration
-        print_info "Enhanced script not found, running basic configuration..."
-        configure_media_libraries
-        configure_download_clients
-        display_automation_status
-    fi
 }
 
 display_completion() {
@@ -1526,10 +1090,6 @@ main() {
 
     # Start services
     start_services
-    echo ""
-
-    # Automate stack configuration
-    automate_stack_configuration
     echo ""
 
     # Success!
