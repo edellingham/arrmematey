@@ -1,0 +1,9 @@
+# Custom Gluetun Dockerfile with curl
+FROM qmcgaw/gluetun:latest
+
+# Install curl (Alpine package)
+RUN apk update && \
+    apk add --no-cache curl
+
+# Keep everything else the same
+# All Gluetun functionality preserved
