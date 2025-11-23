@@ -561,6 +561,9 @@
                 const status = containerStatus[service.id] || {};
                 const mounts = status.mounts || [];
 
+                // Construct URL dynamically using current hostname
+                const serviceUrl = `http://${window.location.hostname}:${service.port}`;
+
                 // Filter relevant mounts (ignore /config, /etc, etc for cleaner UI)
                 const relevantMounts = mounts.filter(m =>
                     !m.destination.includes('/config') &&
@@ -605,12 +608,12 @@
 
                         <div class="service-info">
                             <div style="margin-bottom: 5px;">
-                                <a href="${service.url}" target="_blank" style="color: #60a5fa; text-decoration: none;">${service.url}</a>
+                                <a href="${serviceUrl}" target="_blank" style="color: #60a5fa; text-decoration: none;">${serviceUrl}</a>
                             </div>
                         </div>
 
                         <div class="service-actions">
-                            <button class="btn btn-start" onclick="controlService('${service.id}', 'start')" 
+                            <button class="btn btn-start" onclick="controlService('${service.id}', 'start')"
                                     ${service.status === 'running' ? 'disabled' : ''}>
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 18.3915V5.60846L18.2264 12L8 18.3915ZM6 3.80421V20.1957C6 20.9812 6.86395 21.46 7.53 21.0437L20.6432 12.848C21.2699 12.4563 21.2699 11.5436 20.6432 11.152L7.53 2.95621C6.86395 2.53993 6 3.01878 6 3.80421Z"></path></svg>
                             </button>
@@ -621,7 +624,7 @@
                             <button class="btn btn-restart" onclick="controlService('${service.id}', 'restart')">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4C9.25144 4 6.82508 5.38626 5.38443 7.5H8V9.5H2V3.5H4V5.99936C5.82381 3.57166 8.72764 2 12 2C17.5228 2 22 6.47715 22 12H20C20 7.58172 16.4183 4 12 4ZM4 12C4 16.4183 7.58172 20 12 20C14.7486 20 17.1749 18.6137 18.6156 16.5H16V14.5H22V20.5H20V18.0006C18.1762 20.4283 15.2724 22 12 22C6.47715 22 2 17.5228 2 12H4Z"></path></svg>
                             </button>
-                            <button class="btn btn-open" onclick="window.open('${service.url}', '_blank')">
+                            <button class="btn btn-open" onclick="window.open('${serviceUrl}', '_blank')">
                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6V8H5V19H16V14H18V20C18 20.5523 17.5523 21 17 21H4C3.44772 21 3 20.5523 3 20V7C3 6.44772 3.44772 6 4 6H10ZM21 3V11H19L18.9999 6.413L11.2071 14.2071L9.79289 12.7929L17.5849 5H13V3H21Z"></path></svg>
                             </button>
                             <button class="btn btn-logs" onclick="viewLogs('${service.id}', '${config.name}')" style="grid-column: span 2;">
