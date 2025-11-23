@@ -42,7 +42,7 @@ app.get('/api/services', async (req, res) => {
     const containers = await docker.listContainers({ all: true });
     const services = [];
     const config = getServiceConfig();
-    
+
     for (const [key, service] of Object.entries(config)) {
       const container = containers.find(c => c.Names.includes(`/${key}`));
       services.push({
@@ -55,7 +55,7 @@ app.get('/api/services', async (req, res) => {
         health: container ? container.Status : 'Container not found'
       });
     }
-    
+
     res.json(services);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -66,7 +66,7 @@ app.post('/api/service/:id/:action', async (req, res) => {
   try {
     const { id, action } = req.params;
     const container = docker.getContainer(id);
-    
+
     if (action === 'start') {
       await container.start();
     } else if (action === 'stop') {
@@ -76,7 +76,7 @@ app.post('/api/service/:id/:action', async (req, res) => {
     } else {
       return res.status(400).json({ error: 'Invalid action' });
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -93,7 +93,7 @@ app.get('/api/service/:id/logs', async (req, res) => {
       timestamps: true,
       tail: 100
     });
-    
+
     res.json({ logs: logs.toString() });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -105,7 +105,7 @@ app.get('/api/system/info', async (req, res) => {
     const info = await docker.info();
     const containers = await docker.listContainers({ all: true });
     const images = await docker.listImages();
-    
+
     res.json({
       docker: {
         version: info.ServerVersion,
@@ -113,11 +113,50 @@ app.get('/api/system/info', async (req, res) => {
         running: containers.filter(c => c.State === 'running').length,
         images: images.length
       },
-      services: containers.filter(c => c.Names.some(name => 
+      services: containers.filter(c => c.Names.some(name =>
         Object.keys(getServiceConfig()).some(service => name.includes(service))
       ))
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Enhanced container status with volume mappings
+app.get('/api/containers/status', async (req, res) => {
+  try {
+    const containers = await docker.listContainers({ all: true });
+    const result = {};
+
+    const config = getServiceConfig();
+    const serviceKeys = Object.keys(config);
+
+    for (const container of containers) {
+      // Find which service this container belongs to
+      const serviceKey = serviceKeys.find(key => container.Names.some(n => n.includes(key)));
+
+      if (serviceKey) {
+        // Inspect for detailed info (mounts, etc)
+        const containerInfo = await docker.getContainer(container.Id).inspect();
+
+        result[serviceKey] = {
+          status: container.State,
+          health: container.Status,
+          image: container.Image,
+          volumes: containerInfo.Mounts.map(m => m.Destination),
+          mounts: containerInfo.Mounts.map(m => ({
+            source: m.Source,
+            destination: m.Destination,
+            type: m.Type,
+            rw: m.RW
+          }))
+        };
+      }
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching container status:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -127,25 +166,25 @@ app.get('/api/background/random', async (req, res) => {
   try {
     const path = require('path');
     const fs = require('fs').promises;
-    
+
     const backgroundsDir = path.join(__dirname, 'public', 'images', 'backgrounds');
-    
+
     // Get all background images
     const files = await fs.readdir(backgroundsDir);
-    const imageFiles = files.filter(file => 
+    const imageFiles = files.filter(file =>
       /\.(jpg|jpeg|png|gif|webp)$/i.test(file)
     );
-    
+
     if (imageFiles.length === 0) {
       return res.json({ imageUrl: null, title: 'No backgrounds found' });
     }
-    
+
     // Pick random image
     const randomFile = imageFiles[Math.floor(Math.random() * imageFiles.length)];
     const imageUrl = `/images/backgrounds/${randomFile}`;
-    
+
     console.log(`Serving random background: ${randomFile}`);
-    
+
     return res.json({
       imageUrl: imageUrl,
       title: randomFile.split('.')[0],
