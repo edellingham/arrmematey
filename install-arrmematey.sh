@@ -9,7 +9,7 @@
 set -euo pipefail
 
 # Version
-VERSION="2.20.11"
+VERSION="2.20.14"
 
 # Color codes
 RED='\033[0;31m'
@@ -638,20 +638,32 @@ configure_arrmematey() {
     else
         # Directory customization
         echo ""
-        print_info "Directory paths (press Enter for /data/arrmematey defaults):"
+        print_info "Directory paths (press Enter for defaults):"
         echo ""
 
         echo -n "Config directory [$data_dir/Config]: "
         read -r CONFIG_PATH
         [[ -z "$CONFIG_PATH" ]] && CONFIG_PATH="$data_dir/Config"
 
-        echo -n "Media directory [$data_dir/Media]: "
-        read -r MEDIA_PATH
-        [[ -z "$MEDIA_PATH" ]] && MEDIA_PATH="$data_dir/Media"
-
         echo -n "Downloads directory [$data_dir/Downloads]: "
         read -r DOWNLOADS_PATH
         [[ -z "$DOWNLOADS_PATH" ]] && DOWNLOADS_PATH="$data_dir/Downloads"
+
+        echo -n "Movies directory [$data_dir/Media/Movies]: "
+        read -r MOVIES_PATH
+        [[ -z "$MOVIES_PATH" ]] && MOVIES_PATH="$data_dir/Media/Movies"
+
+        echo -n "TV Shows directory [$data_dir/Media/TV]: "
+        read -r TV_PATH
+        [[ -z "$TV_PATH" ]] && TV_PATH="$data_dir/Media/TV"
+
+        echo -n "Music directory [$data_dir/Media/Music]: "
+        read -r MUSIC_PATH
+        [[ -z "$MUSIC_PATH" ]] && MUSIC_PATH="$data_dir/Media/Music"
+        
+        echo -n "Adult directory [$data_dir/Media/Adult]: "
+        read -r ADULT_PATH
+        [[ -z "$ADULT_PATH" ]] && ADULT_PATH="$data_dir/Media/Adult"
     fi
 
     # Update .env file
@@ -689,15 +701,15 @@ SABNZBD_PORT=8080
 QBITTORRENT_PORT=8081
 JELLYSEERR_PORT=5055
 
-# Directory Configuration (using /data for storage)
+# Directory Configuration
 CONFIG_PATH=$CONFIG_PATH
-MEDIA_PATH=$MEDIA_PATH
 DOWNLOADS_PATH=$DOWNLOADS_PATH
 
 # Media Paths
-MOVIES_PATH=$MEDIA_PATH/Movies
-TV_PATH=$MEDIA_PATH/TV
-MUSIC_PATH=$MEDIA_PATH/Music
+MOVIES_PATH=$MOVIES_PATH
+TV_PATH=$TV_PATH
+MUSIC_PATH=$MUSIC_PATH
+ADULT_PATH=$ADULT_PATH
 
 # Download Paths
 USENET_PATH=$DOWNLOADS_PATH/usenet

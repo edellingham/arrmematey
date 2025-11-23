@@ -70,6 +70,7 @@ services:
     volumes:
       - sonarr-config:/config
       - ${TV_PATH:-/root/Media/TV}:/tv
+      - ${ADULT_PATH:-/root/Media/Adult}:/adult
       - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
@@ -95,6 +96,7 @@ services:
     volumes:
       - radarr-config:/config
       - ${MOVIES_PATH:-/root/Media/Movies}:/movies
+      - ${ADULT_PATH:-/root/Media/Adult}:/adult
       - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
