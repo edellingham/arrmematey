@@ -70,11 +70,17 @@ app.post('/api/service/:id/:action', async (req, res) => {
     if (action === 'start') {
       await container.start();
     } else if (action === 'stop') {
-      await container.stop();
+      // Use a timeout of 10 seconds for graceful stop
+      await container.stop({ t: 10 });
     } else if (action === 'restart') {
       await container.restart();
     } else {
       return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    // Notify clients about the change
+    if (typeof io !== 'undefined') {
+      io.emit('containerUpdate');
     }
 
     res.json({ success: true });
