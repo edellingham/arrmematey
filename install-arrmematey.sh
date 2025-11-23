@@ -9,7 +9,7 @@
 set -euo pipefail
 
 # Version
-VERSION="2.20.9"
+VERSION="2.20.10"
 
 # Color codes
 RED='\033[0;31m'
@@ -83,7 +83,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.20.9${PURPLE}  |  Date: ${GREEN}2025-11-17${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.20.10${PURPLE}  |  Date: ${GREEN}2025-11-17${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -316,7 +316,7 @@ update_wireguard_config() {
     # Set VPN_TYPE to wireguard
     sed -i "s|VPN_TYPE=.*|VPN_TYPE=wireguard|" /opt/arrmematey/docker-compose.yml
 
-    print_success "docker-compose.yml updated with Wireguard credentials"
+    print_success "docker compose updated with Wireguard credentials"
 }
 
 ###############################################################################

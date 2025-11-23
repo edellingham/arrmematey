@@ -1,9 +1,9 @@
 #!/bin/bash
-# One-Liner Arrmematey Upgrade Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/arrmematey-upgrade-oneline.sh | bash
+# One-Liner Arrmematey Upgrade Script - Corrected docker compose usage
+# Usage: curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/arrmematey-upgrade-corrected.sh | bash
 
-echo "🏴‍☠️  One-Liner Arrmematey Upgrade"
-echo "================================="
+echo "🏴‍☠️  One-Liner Arrmematey Upgrade (Corrected)"
+echo "================================================="
 
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
@@ -33,16 +33,16 @@ docker build -t arrstack-ui . --quiet
 cd ..
 
 echo "🛑 Step 4: Stopping containers..."
-docker-compose down
+docker compose down
 
 echo "🚀 Step 5: Starting with new configuration..."
-docker-compose up -d
+docker compose up -d
 
 echo "⏳ Step 6: Waiting for services to initialize..."
 sleep 20
 
 echo "🔍 Step 7: Verifying upgrade..."
-docker-compose ps
+docker compose ps
 
 echo ""
 echo "✅ Upgrade Complete! Version: 2.20.9"
