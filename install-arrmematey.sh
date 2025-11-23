@@ -645,25 +645,25 @@ configure_arrmematey() {
         read -r CONFIG_PATH
         [[ -z "$CONFIG_PATH" ]] && CONFIG_PATH="$data_dir/Config"
 
-        echo -n "Downloads directory [$data_dir/Downloads]: "
+        echo -n "Downloads directory [/data/Downloads]: "
         read -r DOWNLOADS_PATH
-        [[ -z "$DOWNLOADS_PATH" ]] && DOWNLOADS_PATH="$data_dir/Downloads"
+        [[ -z "$DOWNLOADS_PATH" ]] && DOWNLOADS_PATH="/data/Downloads"
 
-        echo -n "Movies directory [$data_dir/Media/Movies]: "
+        echo -n "Movies directory [/data/Media/Movies]: "
         read -r MOVIES_PATH
-        [[ -z "$MOVIES_PATH" ]] && MOVIES_PATH="$data_dir/Media/Movies"
+        [[ -z "$MOVIES_PATH" ]] && MOVIES_PATH="/data/Media/Movies"
 
-        echo -n "TV Shows directory [$data_dir/Media/TV]: "
+        echo -n "TV Shows directory [/data/Media/TV]: "
         read -r TV_PATH
-        [[ -z "$TV_PATH" ]] && TV_PATH="$data_dir/Media/TV"
+        [[ -z "$TV_PATH" ]] && TV_PATH="/data/Media/TV"
 
-        echo -n "Music directory [$data_dir/Media/Music]: "
+        echo -n "Music directory [/data/Media/Music]: "
         read -r MUSIC_PATH
-        [[ -z "$MUSIC_PATH" ]] && MUSIC_PATH="$data_dir/Media/Music"
+        [[ -z "$MUSIC_PATH" ]] && MUSIC_PATH="/data/Media/Music"
         
-        echo -n "Adult directory [$data_dir/Media/Adult]: "
+        echo -n "Adult directory [/data/Media/Adult]: "
         read -r ADULT_PATH
-        [[ -z "$ADULT_PATH" ]] && ADULT_PATH="$data_dir/Media/Adult"
+        [[ -z "$ADULT_PATH" ]] && ADULT_PATH="/data/Media/Adult"
     fi
 
     # Update .env file

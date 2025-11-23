@@ -69,9 +69,9 @@ services:
       - TZ=${TZ:-UTC}
     volumes:
       - sonarr-config:/config
-      - ${TV_PATH:-/data/arrmematey/Media/TV}:/tv
-      - ${ADULT_PATH:-/data/arrmematey/Media/Adult}:/adult
-      - ${DOWNLOADS_PATH:-/data/arrmematey/Downloads}:/downloads
+      - ${TV_PATH:-/data/Media/TV}:/tv
+      - ${ADULT_PATH:-/data/Media/Adult}:/adult
+      - ${DOWNLOADS_PATH:-/data/Downloads}:/downloads
     network_mode: "service:gluetun"
     depends_on:
       gluetun:
@@ -95,9 +95,9 @@ services:
       - TZ=${TZ:-UTC}
     volumes:
       - radarr-config:/config
-      - ${MOVIES_PATH:-/data/arrmematey/Media/Movies}:/movies
-      - ${ADULT_PATH:-/data/arrmematey/Media/Adult}:/adult
-      - ${DOWNLOADS_PATH:-/data/arrmematey/Downloads}:/downloads
+      - ${MOVIES_PATH:-/data/Media/Movies}:/movies
+      - ${ADULT_PATH:-/data/Media/Adult}:/adult
+      - ${DOWNLOADS_PATH:-/data/Downloads}:/downloads
     network_mode: "service:gluetun"
     depends_on:
       gluetun:
@@ -121,8 +121,8 @@ services:
       - TZ=${TZ:-UTC}
     volumes:
       - lidarr-config:/config
-      - ${MUSIC_PATH:-/data/arrmematey/Media/Music}:/music
-      - ${DOWNLOADS_PATH:-/data/arrmematey/Downloads}:/downloads
+      - ${MUSIC_PATH:-/data/Media/Music}:/music
+      - ${DOWNLOADS_PATH:-/data/Downloads}:/downloads
     network_mode: "service:gluetun"
     depends_on:
       gluetun:
@@ -148,7 +148,7 @@ services:
       - SABNZBD_PASSWORD=${SABNZBD_PASSWORD:-changeme}
     volumes:
       - sabnzbd-config:/config
-      - ${DOWNLOADS_PATH:-/data/arrmematey/Downloads}:/downloads
+      - ${DOWNLOADS_PATH:-/data/Downloads}:/downloads
     network_mode: "service:gluetun"
     depends_on:
       gluetun:
@@ -171,7 +171,7 @@ services:
       - WEBUI_PORT=8081
     volumes:
       - qbittorrent-config:/config
-      - ${DOWNLOADS_PATH:-/data/arrmematey/Downloads}:/downloads
+      - ${DOWNLOADS_PATH:-/data/Downloads}:/downloads
     network_mode: "service:gluetun"
     depends_on:
       gluetun:
@@ -212,9 +212,9 @@ services:
       - TZ=${TZ:-UTC}
     volumes:
       - emby-config:/config
-      - ${MOVIES_PATH:-/data/arrmematey/Media/Movies}:/data/movies:ro
-      - ${TV_PATH:-/data/arrmematey/Media/TV}:/data/tvshows:ro
-      - ${MUSIC_PATH:-/data/arrmematey/Media/Music}:/data/music:ro
+      - ${MOVIES_PATH:-/data/Media/Movies}:/data/movies:ro
+      - ${TV_PATH:-/data/Media/TV}:/data/tvshows:ro
+      - ${MUSIC_PATH:-/data/Media/Music}:/data/music:ro
       - lidarr-media:/data/media/music:ro
     ports:
       - ${EMBY_PORT:-8096}:8096
