@@ -3,7 +3,7 @@
 # Usage: curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/arrmematey-upgrade-with-version.sh | bash
 
 # Version
-UPGRADE_SCRIPT_VERSION="2.20.18"
+UPGRADE_SCRIPT_VERSION="2.20.19"
 
 # Color codes for better feedback
 RED='\033[0;31m'

@@ -9,7 +9,7 @@
 set -euo pipefail
 
 # Version
-VERSION="2.20.18"
+VERSION="2.20.19"
 
 # Color codes
 RED='\033[0;31m'
