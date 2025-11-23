@@ -215,7 +215,6 @@ services:
       - ${MOVIES_PATH:-/data/Media/Movies}:/data/movies:ro
       - ${TV_PATH:-/data/Media/TV}:/data/tvshows:ro
       - ${MUSIC_PATH:-/data/Media/Music}:/data/music:ro
-      - lidarr-media:/data/media/music:ro
     ports:
       - ${EMBY_PORT:-8096}:8096
     restart: unless-stopped
