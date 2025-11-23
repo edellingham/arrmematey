@@ -27,10 +27,7 @@ echo "📦 Step 2: Pulling latest Docker images..."
 docker compose pull
 
 echo "🏗️  Step 3: Rebuilding UI with enhancements..."
-cd ui
-npm install --silent
-docker build -t arrstack-ui . --quiet
-cd ..
+docker compose build arrstack-ui --no-cache
 
 echo "🛑 Step 4: Stopping containers..."
 docker compose down

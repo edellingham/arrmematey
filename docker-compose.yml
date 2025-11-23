@@ -69,7 +69,7 @@ services:
       - TZ=${TZ:-UTC}
     volumes:
       - sonarr-config:/config
-      - sonarr-media:/tv
+      - ${TV_PATH:-/root/Media/TV}:/tv
       - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
@@ -94,7 +94,7 @@ services:
       - TZ=${TZ:-UTC}
     volumes:
       - radarr-config:/config
-      - radarr-media:/movies
+      - ${MOVIES_PATH:-/root/Media/Movies}:/movies
       - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
@@ -119,7 +119,7 @@ services:
       - TZ=${TZ:-UTC}
     volumes:
       - lidarr-config:/config
-      - lidarr-media:/music
+      - ${MUSIC_PATH:-/root/Media/Music}:/music
       - downloads:/downloads
     network_mode: "service:gluetun"
     depends_on:
@@ -210,8 +210,9 @@ services:
       - TZ=${TZ:-UTC}
     volumes:
       - emby-config:/config
-      - sonarr-media:/data/media/series:ro
-      - radarr-media:/data/media/movies:ro
+      - ${MOVIES_PATH:-/root/Media/Movies}:/data/movies:ro
+      - ${TV_PATH:-/root/Media/TV}:/data/tvshows:ro
+      - ${MUSIC_PATH:-/root/Media/Music}:/data/music:ro
       - lidarr-media:/data/media/music:ro
     ports:
       - ${EMBY_PORT:-8096}:8096

@@ -3,7 +3,7 @@
 # Usage: curl -fsSL https://raw.githubusercontent.com/edellingham/arrmematey/main/arrmematey-upgrade-with-version.sh | bash
 
 # Version
-UPGRADE_SCRIPT_VERSION="2.20.11"
+UPGRADE_SCRIPT_VERSION="2.20.12"
 
 # Color codes for better feedback
 RED='\033[0;31m'
@@ -139,16 +139,17 @@ else
     print_warning "npm install completed with warnings (may not affect functionality)"
 fi
 
+cd ..
+
 echo -e "${CYAN}  Building UI with enhanced features...${NC}"
-if docker build -t arrstack-ui . --quiet; then
+# Force rebuild with no cache to ensure latest changes are picked up
+if docker compose build arrstack-ui --no-cache; then
     print_success "UI rebuilt with professional icons and version display"
 else
     print_error "Failed to build UI"
     echo "Check UI build logs for errors"
-    cd ..
     exit 1
 fi
-cd ..
 
 print_step "Stopping containers gracefully"
 echo -e "${CYAN}  Stopping services...${NC}"
