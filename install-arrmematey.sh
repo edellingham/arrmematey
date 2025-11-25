@@ -83,7 +83,7 @@ print_header() {
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}  One-Command Media Automation Stack Installation           ${PURPLE}║${NC}"
     echo -e "${PURPLE}║${NC}                                                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  Version: ${GREEN}2.20.11${PURPLE}  |  Date: ${GREEN}2025-11-17${PURPLE}                   ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${NC}  Version: ${GREEN}$VERSION${PURPLE}  |  Date: ${GREEN}$(date '+%Y-%m-%d')${PURPLE}                   ${PURPLE}║${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
