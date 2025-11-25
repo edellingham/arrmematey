@@ -338,13 +338,47 @@ install_arrmematey() {
     # Clone repository
     if [[ -d "$install_dir" ]]; then
         print_warning "Arrmematey directory already exists at $install_dir"
-        read -p "Remove and reinstall? (y/N): " -n 1 -r
         echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$install_dir"
+        echo "Options:"
+        echo "  1) Remove and reinstall (fresh installation)"
+        echo "  2) Update existing installation"
+        echo "  3) Cancel installation"
+        echo ""
+        
+        # Use same read pattern with fallback
+        REPLY=""
+        if read -p "Choose option [1-3]: " -t 30 -n 1 REPLY 2>/dev/null; then
+            echo "DEBUG: Read command for reinstall option successful" >&2
         else
-            error_exit "Installation cancelled. Remove $install_dir or choose a different location."
+            echo "DEBUG: Read command for reinstall option failed, using default" >&2
+            # Default to update existing installation
+            REPLY="2"
         fi
+        
+        echo ""
+        case "$REPLY" in
+            1|y|Y)
+                print_info "Removing existing installation..."
+                rm -rf "$install_dir"
+                print_success "Removed $install_dir"
+                ;;
+            2|u|U)
+                print_info "Updating existing installation..."
+                cd "$install_dir"
+                if git pull origin main; then
+                    print_success "Updated Arrmematey to latest version"
+                else
+                    print_warning "Failed to update, continuing with existing version"
+                fi
+                return 0  # Skip cloning since we're updating
+                ;;
+            3|n|N|"")
+                error_exit "Installation cancelled. To reinstall, remove $install_dir or choose option 1."
+                ;;
+            *)
+                error_exit "Invalid option. Installation cancelled."
+                ;;
+        esac
     fi
 
     print_info "Cloning repository to $install_dir..."
