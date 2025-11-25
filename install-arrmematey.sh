@@ -1069,7 +1069,25 @@ main() {
     echo "DEBUG: Back in main after check_system_resources" >&2
 
     echo ""
-    read -p "Continue with installation? (y/N): " -n 1 -r
+    echo "DEBUG: About to execute read command" >&2
+    echo "DEBUG: Testing if stdin is a terminal..." >&2
+    if [ -t 0 ]; then
+        echo "DEBUG: Stdin is a terminal" >&2
+    else
+        echo "DEBUG: Stdin is NOT a terminal" >&2
+    fi
+    
+    # Try read with timeout and explicit source
+    echo "DEBUG: Attempting read command..." >&2
+    if read -p "Continue with installation? (y/N): " -t 30 -n 1 -r REPLY 2>/dev/null; then
+        echo "DEBUG: Read command successful" >&2
+    else
+        echo "DEBUG: Read command failed or timed out" >&2
+        # Fallback: assume yes for debugging
+        REPLY="y"
+        echo "DEBUG: Using fallback REPLY='y'" >&2
+    fi
+    
     echo "DEBUG: Read command completed, REPLY='$REPLY'" >&2
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
