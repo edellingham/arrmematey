@@ -144,15 +144,19 @@ check_root() {
 
 check_system_resources() {
     print_step "Checking system resources..."
+    
+    echo "DEBUG: Starting system resources check" >&2
 
     # Check RAM
     local total_mem_kb
     total_mem_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
     local total_mem_gb=$((total_mem_kb / 1024 / 1024))
+    echo "DEBUG: RAM check completed: ${total_mem_gb}GB" >&2
 
     # Check CPU
     local cpu_cores
     cpu_cores=$(nproc)
+    echo "DEBUG: CPU check completed: ${cpu_cores} cores" >&2
 
     # Check disk space (total vs available)
     local root_total_gb
@@ -161,6 +165,7 @@ check_system_resources() {
     root_avail_gb=$(df -BG / | awk 'NR==2 {print $4}' | sed 's/G//')
     local root_used_gb
     root_used_gb=$(df -BG / | awk 'NR==2 {print $3}' | sed 's/G//')
+    echo "DEBUG: Disk check completed: Total ${root_total_gb}GB, Available ${root_avail_gb}GB, Used ${root_used_gb}GB" >&2
 
     echo ""
     print_info "System Resources:"
@@ -181,6 +186,7 @@ check_system_resources() {
         print_info "Your disk has ${root_total_gb}GB total, but only ${root_avail_gb}GB free"
     fi
 
+    echo "DEBUG: About to return from check_system_resources" >&2
     return 0
 }
 
@@ -1060,9 +1066,11 @@ main() {
     check_root
     check_os
     check_system_resources
+    echo "DEBUG: Back in main after check_system_resources" >&2
 
     echo ""
     read -p "Continue with installation? (y/N): " -n 1 -r
+    echo "DEBUG: Read command completed, REPLY='$REPLY'" >&2
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo "Installation cancelled."
